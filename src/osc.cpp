@@ -40,14 +40,22 @@ class Filter {
         double dt = 1/22000;
 
         double lowPass(double input){
+            thisInput = input;
+            prevOutput = thisOutput;
             thisOutput = (tau*prevOutput + dt*thisInput) / (tau + dt);
+            prevInput = input;
             return thisOutput;
         }
-
+        /*
         double highPass(double input){
-            thisOutput = (1 - (tau/(2*dt) - 1)/(tau/(2*dt) + 1)*(prevOutput + input - prevInput));
+            thisInput = input;
+            prevOutput = thisOutput;
+            thisOutput = (1 - (tau/(2*dt) - 1)/(tau/(2*dt) + 1)*(prevOutput + thisInput - prevInput));
+            prevInput = input;
             return thisOutput;
         }
+        */
+        
 };
 
 int main()

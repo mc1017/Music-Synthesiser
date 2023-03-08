@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <cmath>
 
 //Constants
   const uint32_t interval = 100; //Display update interval
   const uint32_t MAX_UINT32 = 4294967295;
-  const uint32_t stepSizes [] = {32832933, 30990162, 29250818, 27609095, 26059516, 24596908, 23216389, 21913354, 20683452, 19522579, 18426860, 17392640, 16416466, 15495081, 14625409, 13804548, 13029758, 12298454, 11608195, 10956677, 10341726, 9761289, 9213430, 8696320, 8208233, 7747540, 7312704, 6902274, 6514879, 6149227, 5804097, 5478338, 5170863, 4880645, 4606715, 4348160}
+  const uint32_t stepSizes [] = {32832933, 30990162, 29250818, 27609095, 26059516, 24596908, 23216389, 21913354, 20683452, 19522579, 18426860, 17392640, 16416466, 15495081, 14625409, 13804548, 13029758, 12298454, 11608195, 10956677, 10341726, 9761289, 9213430, 8696320, 8208233, 7747540, 7312704, 6902274, 6514879, 6149227, 5804097, 5478338, 5170863, 4880645, 4606715, 4348160};
   volatile uint32_t currentStepSize;
 
 //Pin definitions
@@ -62,10 +63,10 @@ void sampleISR_square(){
   static uint32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
   if ((phaseAcc >> 24) < 128){
-    int32_t Vout = 0;
+    int32_t Vout = 0 - 128;
   }
   else{
-    int32_t Vout = 255;
+    int32_t Vout = 255 - 128;
   }
   analogWrite(OUTR_PIN, Vout + 128);
 }
@@ -73,8 +74,11 @@ void sampleISR_square(){
 void sampleISR_sine(){
   static uint32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
-  uint32_t radians = phaseAcc/MAX_UINT32 + 0.5;
-  int32_t Vout = (phaseAcc >> 24) - 128;
+  double radians = phaseAcc/MAX_UINT32;
+  double sineScaled = std::sin(radians)*2147483646 + 0.5;
+  int32_t sineScaledFixed = static_cast<int32_t>(sineScaled);
+
+  int32_t Vout = (sineScaledFixed >> 24) - 128;
   analogWrite(OUTR_PIN, Vout + 128);
 }
 

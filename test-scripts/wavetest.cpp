@@ -22,11 +22,12 @@ void sampleISR() {
 void sampleISR_triangle(){
   static uint32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
+  int32_t Vout = 0;
   if ((phaseAcc >> 24) < 128){
-    int32_t Vout = (phaseAcc >> 24) - 128;
+    Vout = (phaseAcc >> 24) - 128;
   }
   else{
-    int32_t Vout = 255 - (phaseAcc >> 24);
+    Vout = 255 - (phaseAcc >> 24);
   }
   WaveFile << ( Vout + 128) << std::endl;
 }
@@ -34,11 +35,12 @@ void sampleISR_triangle(){
 void sampleISR_square(){
   static uint32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
+  int32_t Vout = 0;
   if ((phaseAcc >> 24) < 128){
-    int32_t Vout = 0 - 128;
+    Vout = 0 - 128;
   }
   else{
-    int32_t Vout = 255 - 128;
+    Vout = 255 - 128;
   }
   WaveFile << ( Vout + 128) << std::endl;
 }
@@ -59,10 +61,41 @@ int main(){
     std::string type;
     std::cout << "specify step size (0-35)" << std::endl;
     std::cin >> input;
+    std::cout << "specify waveform (saw, triangle, square, sine)" << std::endl;
+    std::cin >> type;
     currentStepSize = stepSizes[input];
+
+    if (type.std::string::compare("saw"))
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            sampleISR();
+        }
+    }
+    else if (type.std::string::compare("triangle"))
+    {
         for (int i = 0; i < 1000; i++)
         {
             sampleISR_triangle();
         }
+    }
+    else if (type.std::string::compare("square"))
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            sampleISR_square();
+        }
+    }
+    else if (type.std::string::compare("sine"))
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            sampleISR_sine();
+        }
+    }
+    else
+    {
+        std::cout << "invalid input";
+    }
     WaveFile.std::ofstream::close();
 }

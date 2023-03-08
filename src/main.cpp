@@ -3,6 +3,7 @@
 
 // Constants
 const uint32_t interval = 100; // Display update interval
+const std::uint32_t MAX_UINT32 = 4294967295; //max value -1 of uint32_t
 
 // Pin definitions
 // Row select and enable
@@ -38,6 +39,7 @@ volatile uint32_t currentStepSize;
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
+/*
 void sampleISR()
 {
     static uint32_t phaseAcc = 0;
@@ -45,6 +47,56 @@ void sampleISR()
     int32_t Vout = (phaseAcc >> 24) - 128;
     analogWrite(OUTR_PIN, Vout + 128);
 }
+*/
+
+
+//ALTERNATE WAVEFORM(Triangle)
+/*
+void sampleISR(){
+  static uint32_t phaseAcc = 0;
+  phaseAcc += currentStepSize;
+  int32_t Vout = 0;
+  if ((phaseAcc >> 24) < 128){
+    Vout = (phaseAcc >> 24) - 128;
+  }
+  else{
+    Vout = 255 - (phaseAcc >> 24);
+  }
+  analogWrite(OUTR_PIN, Vout + 128);
+}
+*/
+
+
+//ALTERNATE WAVEFORM(Square)
+void sampleISR(){
+  static uint32_t phaseAcc = 0;
+  phaseAcc += currentStepSize;
+  int32_t Vout = 0;
+  if ((phaseAcc >> 24) < 128){
+    Vout = 0 - 128;
+  }
+  else{
+    Vout = 255 - 128;
+  }
+  analogWrite(OUTR_PIN, Vout + 128);
+}
+
+
+
+//ALTERNATE WAVEFORM(Sine, to be optimised)
+/*
+void sampleISR(){
+  static uint32_t phaseAcc = 0;
+  phaseAcc += currentStepSize;
+  double radians = phaseAcc/MAX_UINT32;
+  double sineScaled = std::sin(radians)*2147483646 + 0.5;
+  int32_t sineScaledFixed = static_cast<int32_t>(sineScaled);
+
+  int32_t Vout = (sineScaledFixed >> 24) - 128;
+  analogWrite(OUTR_PIN, Vout + 128);
+}
+*/
+
 
 void setRow(uint8_t rowIdx)
 {

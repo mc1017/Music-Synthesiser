@@ -1,9 +1,10 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <STM32FreeRTOS.h>
 
 // Constants
-const uint32_t interval = 100; // Display update interval
-const std::uint32_t MAX_UINT32 = 4294967295; //max value -1 of uint32_t
+const uint32_t interval = 100;               // Display update interval
+const std::uint32_t MAX_UINT32 = 4294967295; // max value -1 of uint32_t
 
 // Pin definitions
 // Row select and enable
@@ -35,6 +36,7 @@ const int HKOE_BIT = 6;
 
 // Look up current step size
 volatile uint32_t currentStepSize;
+volatile uint8_t keyArray[7];
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
@@ -49,8 +51,7 @@ void sampleISR()
 }
 */
 
-
-//ALTERNATE WAVEFORM(Triangle)
+// ALTERNATE WAVEFORM(Triangle)
 /*
 void sampleISR(){
   static uint32_t phaseAcc = 0;
@@ -66,24 +67,24 @@ void sampleISR(){
 }
 */
 
-
-//ALTERNATE WAVEFORM(Square)
-void sampleISR(){
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  int32_t Vout = 0;
-  if ((phaseAcc >> 24) < 128){
-    Vout = 0 - 128;
-  }
-  else{
-    Vout = 255 - 128;
-  }
-  analogWrite(OUTR_PIN, Vout + 128);
+// ALTERNATE WAVEFORM(Square)
+void sampleISR()
+{
+    static uint32_t phaseAcc = 0;
+    phaseAcc += currentStepSize;
+    int32_t Vout = 0;
+    if ((phaseAcc >> 24) < 128)
+    {
+        Vout = 0 - 128;
+    }
+    else
+    {
+        Vout = 255 - 128;
+    }
+    analogWrite(OUTR_PIN, Vout + 128);
 }
 
-
-
-//ALTERNATE WAVEFORM(Sine, to be optimised)
+// ALTERNATE WAVEFORM(Sine, to be optimised)
 /*
 void sampleISR(){
   static uint32_t phaseAcc = 0;
@@ -96,7 +97,6 @@ void sampleISR(){
   analogWrite(OUTR_PIN, Vout + 128);
 }
 */
-
 
 void setRow(uint8_t rowIdx)
 {
@@ -137,20 +137,7 @@ uint8_t readCols()
     // Concatenate the four bits into a single byte and return
     return (C3 << 3) | (C2 << 2) | (C1 << 1) | C0;
 }
-// Function to set outputs using key matrix
-void setOutMuxBit(const uint8_t bitIdx, const bool value)
-{
-    digitalWrite(REN_PIN, LOW);
-    digitalWrite(RA0_PIN, bitIdx & 0x01);
-    digitalWrite(RA1_PIN, bitIdx & 0x02);
-    digitalWrite(RA2_PIN, bitIdx & 0x04);
-    digitalWrite(OUT_PIN, value);
-    digitalWrite(REN_PIN, HIGH);
-    delayMicroseconds(2);
-    digitalWrite(REN_PIN, LOW);
-}
-
-int highest_unset_bit(uint8_t array[])
+int highest_unset_bit(volatile uint8_t array[])
 {
     uint16_t merged = ((uint16_t)array[2] & 0x0F) << 8 |
                       ((uint16_t)array[1] & 0x0F) << 4 |
@@ -167,6 +154,71 @@ int highest_unset_bit(uint8_t array[])
         mask >>= 1;
     }
     return i;
+}
+void scanKeysTask(void *pvParameters)
+{
+    const TickType_t xFrequency = 50 / portTICK_PERIOD_MS;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    while (1)
+    {
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        for (uint8_t i = 0; i < 3; i++)
+        {
+            setRow(i);
+            delayMicroseconds(3);
+            keyArray[i] = readCols();
+            u8g2.setCursor(2 + 10 * i, 20);
+            u8g2.print(keyArray[i], HEX);
+        }
+    }
+}
+void updateDisplayTask(void *pvParameters)
+{
+    int highestBit = -1;
+    const uint32_t stepSizes[] = {
+        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+    };
+
+    const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    while (1)
+    {
+        u8g2.clearBuffer();                 // clear the internal memory
+        u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+
+        vTaskDelayUntil(&xLastWakeTime, xFrequency);
+        // Update display
+
+        highestBit = highest_unset_bit(keyArray);
+        if (highestBit < 0)
+        {
+            currentStepSize = 0;
+        }
+        else
+        {
+            currentStepSize = stepSizes[highestBit];
+        }
+        u8g2.setCursor(2, 10);
+        u8g2.print(currentStepSize);
+        // u8g2.print(currentStepSize, HEX);
+        u8g2.sendBuffer(); // transfer internal memory to the display
+
+        // Toggle LED
+        digitalToggle(LED_BUILTIN);
+    }
+}
+
+// Function to set outputs using key matrix
+void setOutMuxBit(const uint8_t bitIdx, const bool value)
+{
+    digitalWrite(REN_PIN, LOW);
+    digitalWrite(RA0_PIN, bitIdx & 0x01);
+    digitalWrite(RA1_PIN, bitIdx & 0x02);
+    digitalWrite(RA2_PIN, bitIdx & 0x04);
+    digitalWrite(OUT_PIN, value);
+    digitalWrite(REN_PIN, HIGH);
+    delayMicroseconds(2);
+    digitalWrite(REN_PIN, LOW);
 }
 
 void setup()
@@ -201,50 +253,27 @@ void setup()
     sampleTimer->setOverflow(22000, HERTZ_FORMAT);
     sampleTimer->attachInterrupt(sampleISR);
     sampleTimer->resume();
-    // Initialise UART
-    Serial.begin(9600);
-    Serial.println("Hello World");
+    TaskHandle_t scanKeysHandle = NULL;
+    xTaskCreate(
+        scanKeysTask, /* Function that implements the task */
+        "scanKeys",   /* Text name for the task */
+        200,          /* Stack size in words, not bytes */
+        NULL,         /* Parameter passed into the task */
+        2,            /* Task priority */
+        &scanKeysHandle);
+
+    TaskHandle_t updateDisplayHandle = NULL;
+    xTaskCreate(
+        updateDisplayTask, /* Function that implements the task */
+        "updateDisplay",   /* Text name for the task */
+        200,               /* Stack size in words, not bytes */
+        NULL,              /* Parameter passed into the task */
+        1,                 /* Task priority */
+        &scanKeysHandle);
+
+    vTaskStartScheduler();
 }
 
 void loop()
 {
-    // put your main code here, to run repeatedly:
-    static uint32_t next = millis();
-    static uint32_t count = 0;
-    uint8_t keyArray[7];
-    int highestBit = -1;
-    const uint32_t stepSizes[] = {
-        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
-    };
-
-    while (millis() < next)
-        ; // Wait for next interval
-    next += interval;
-
-    // Update display
-    u8g2.clearBuffer();                 // clear the internal memory
-    u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    for (uint8_t i = 0; i < 3; i++)
-    {
-        setRow(i);
-        delayMicroseconds(3);
-        keyArray[i] = readCols();
-        u8g2.setCursor(2 + 10 * i, 20);
-        u8g2.print(keyArray[i], HEX);
-        highestBit = highest_unset_bit(keyArray);
-        if (highestBit < 0)
-        {
-            currentStepSize = 0;
-        }
-        else
-        {
-            currentStepSize = stepSizes[highestBit];
-        }
-        u8g2.setCursor(2, 10);
-        u8g2.print(currentStepSize, HEX);
-    }
-    // u8g2.print(currentStepSize, HEX);
-    u8g2.sendBuffer(); // transfer internal memory to the display
-    // Toggle LED
-    digitalToggle(LED_BUILTIN);
 }

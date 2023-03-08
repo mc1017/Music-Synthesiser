@@ -24,13 +24,20 @@ void calculate(){
     }
     for (int i = 0; i < 36; i++)
     {
-        accsteps[i] = int(intlim/eqtemperament[i] + 0.5);
+        accsteps[i] = int((intlim*eqtemperament[i])/22000 + 0.5);
     }
 
     for (int i = 0; i < 36; i++)
     {
         CalcFile << notenames[i] << std::endl << eqtemperament [i] << std::endl << accsteps[i] << std::endl;
     }
+
+    for (int i = 0; i < 36; i++)
+    {
+        CalcFile << accsteps[i] << ", ";
+    }
+    
+    CalcFile << std::endl;
 
     CalcFile.std::ofstream::close();
 }

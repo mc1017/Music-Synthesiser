@@ -38,19 +38,42 @@ const int HKOE_BIT = 6;
 // Look up current step size
 volatile uint32_t currentStepSize;
 volatile uint8_t keyArray[7];
+volatile uint32_t currentLFOStepSize;
+volatile uint8_t postLFOStepSize;
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
-/*
+
 void sampleISR()
 {
     static uint32_t phaseAcc = 0;
-    phaseAcc += currentStepSize;
+    
+    static uint32_t LFOphaseAcc = 0;
+ 
+    LFOphaseAcc += currentLFOStepSize; //LFO of 4Hz, placeholder lfo speed
+
+    uint32_t LFOpitchamt = 255392044; //1 semitone, placeholder lfo pitch value, where 1 octave is represented by MAX_UINT32
+    postLFOStepSize = currentStepSize;
+
+    //uint32_t LFOvolamt = 0;
+
+    
+    // if ((LFOphaseAcc >> 24) < 128){
+    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * (LFOphaseAcc/MAX_UINT32-(1/4));
+    // }
+    // else{
+    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * ((1/2)-LFOphaseAcc/MAX_UINT32);
+    // }
+    
+
+    phaseAcc += postLFOStepSize;
+
     int32_t Vout = (phaseAcc >> 24) - 128;
+
     analogWrite(OUTR_PIN, Vout + 128);
 }
-*/
+
 
 // ALTERNATE WAVEFORM(Triangle)
 /*
@@ -85,7 +108,8 @@ void sampleISR(){
     analogWrite(OUTR_PIN, Vout + 128);
 }*/
 
-// ALTERNATE WAVEFORM(Sine, to be optimised)
+/*
+// ALTERNATE WAVEFORM\
 
 void sampleISR(){
     static uint32_t phaseAcc = 0;
@@ -94,7 +118,7 @@ void sampleISR(){
     Vout = sine[Vout];
     analogWrite(OUTR_PIN, Vout + 128);
 }
-
+*/
 
 void setRow(uint8_t rowIdx)
 {
@@ -191,10 +215,13 @@ void updateDisplayTask(void *pvParameters)
         if (highestBit < 0)
         {
             currentStepSize = 0;
+            currentLFOStepSize = 0;
+            postLFOStepSize = 0;
         }
         else
         {
             currentStepSize = stepSizes[highestBit];
+            currentLFOStepSize = 78090;
         }
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);

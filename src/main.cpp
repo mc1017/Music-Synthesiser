@@ -51,13 +51,13 @@ void sampleISR()
     
     static uint32_t LFOphaseAcc = 0;
  
-    LFOphaseAcc += currentLFOStepSize; //LFO of 4Hz, placeholder lfo speed
+    LFOphaseAcc += currentLFOStepSize; 
 
     uint32_t LFOpitchamt = 255392044; //1 semitone, placeholder lfo pitch value, where 1 octave is represented by MAX_UINT32
     postLFOStepSize = currentStepSize;
 
-    //uint32_t LFOvolamt = 0;
-
+    float LFOvolamt = 1; //placeholder volume automation
+    float VoutModifier = 0;
     
     // if ((LFOphaseAcc >> 24) < 128){
     //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * (LFOphaseAcc/MAX_UINT32-(1/4));
@@ -66,10 +66,18 @@ void sampleISR()
     //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * ((1/2)-LFOphaseAcc/MAX_UINT32);
     // }
     
+    if ((LFOphaseAcc >> 24) < 128){
+         VoutModifier = LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+     }
+     else{
+         VoutModifier = LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+     }
+    
 
-    phaseAcc += postLFOStepSize;
+    phaseAcc += currentStepSize;
 
     int32_t Vout = (phaseAcc >> 24) - 128;
+    Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
 
     analogWrite(OUTR_PIN, Vout + 128);
 }
@@ -221,7 +229,7 @@ void updateDisplayTask(void *pvParameters)
         else
         {
             currentStepSize = stepSizes[highestBit];
-            currentLFOStepSize = 78090;
+            currentLFOStepSize = 780903; //LFO of 4Hz, placeholder lfo speed
         }
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);

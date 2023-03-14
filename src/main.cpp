@@ -106,8 +106,8 @@ void sampleISR(){
 
     postLFOStepSize = currentStepSize;
 
-    float LFOvolamt = 0; //placeholder volume automation
-    float LFOpitchamt = 0.0833333333; //placeholder pitch automation
+    float LFOvolamt = 1; //placeholder volume automation
+    float LFOpitchamt = 0;//0.0833333333; //placeholder pitch automation
     float VoutModifier = 0;
     float stepModifier = 0;
     
@@ -127,15 +127,15 @@ void sampleISR(){
 
     uint32_t Vout = 0;
 
-  if ((phaseAcc >> 24) < 128){
-    Vout = (phaseAcc >> 24) - 128;
-  }
-  else{
-    Vout = 255 - (phaseAcc >> 24);
-  }
-
-  Vout = Vout >> (8 - knob3rotation);
-  analogWrite(OUTR_PIN, Vout + 128);
+    if ((phaseAcc >> 24) < 128){
+        Vout = (phaseAcc >> 24) - 128;
+    }
+    else{
+        Vout = 255 - (phaseAcc >> 24);
+    }
+    Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
+    Vout = Vout >> (8 - knob3rotation);
+    analogWrite(OUTR_PIN, Vout + 128);
 }
 
 

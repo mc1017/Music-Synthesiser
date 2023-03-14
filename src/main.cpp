@@ -270,7 +270,7 @@ void sampleISR(){
 }*/
 
 /*
-// ALTERNATE WAVEFORM\
+// ALTERNATE WAVEFORM (Sine)
 
 void sampleISR(){
     static uint32_t phaseAcc = 0;

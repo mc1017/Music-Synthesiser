@@ -107,16 +107,16 @@ void sampleISR(){
     postLFOStepSize = currentStepSize;
 
     float LFOvolamt = 1; //placeholder volume automation
-    float LFOpitchamt = 0;//0.0833333333; //placeholder pitch automation
+    float LFOpitchamt = 0.0833333333; //placeholder pitch automation
     float VoutModifier = 0;
     float stepModifier = 0;
     
     if ((VolLFOphaseAcc >> 24) < 128){
-         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
          stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
      else{
-         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
          stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
 
@@ -128,13 +128,15 @@ void sampleISR(){
     uint32_t Vout = 0;
 
     if ((phaseAcc >> 24) < 128){
-        Vout = (phaseAcc >> 24) - 128;
+        Vout = ((phaseAcc >> 24) - 128);
     }
     else{
-        Vout = 255 - (phaseAcc >> 24);
+        Vout = (255 - (phaseAcc >> 24));
     }
+
     Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
     Vout = Vout >> (8 - knob3rotation);
+
     analogWrite(OUTR_PIN, Vout + 128);
 }
 

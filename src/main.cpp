@@ -5,6 +5,7 @@
 // Constants
 const uint32_t interval = 100;               // Display update interval
 const std::uint32_t MAX_UINT32 = 4294967295; // max value -1 of uint32_t
+const std::int8_t sine[] = {-1, 2, 5, 8, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 65, 68, 71, 73, 76, 78, 81, 83, 86, 88, 90, 92, 94, 96, 99, 100, 102, 104, 106, 108, 109, 111, 112, 114, 115, 116, 118, 119, 120, 121, 122, 123, 123, 124, 125, 125, 126, 126, 127, 127, 127, 127, 127, 127, 127, 127, 126, 126, 125, 125, 124, 123, 123, 122, 121, 120, 119, 118, 116, 115, 114, 112, 111, 109, 108, 106, 104, 102, 100, 99, 96, 94, 92, 90, 88, 86, 83, 81, 78, 76, 73, 71, 68, 65, 63, 60, 57, 54, 51, 48, 45, 42, 39, 36, 33, 30, 27, 24, 21, 18, 15, 12, 8, 5, 2, -1, -4, -7, -10, -14, -17, -20, -23, -26, -29, -32, -35, -38, -41, -44, -47, -50, -53, -56, -59, -62, -65, -67, -70, -73, -75, -78, -80, -83, -85, -88, -90, -92, -94, -96, -98, -101, -102, -104, -106, -108, -110, -111, -113, -114, -116, -117, -118, -120, -121, -122, -123, -124, -125, -125, -126, -127, -127, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -128, -127, -127, -126, -125, -125, -124, -123, -122, -121, -120, -118, -117, -116, -114, -113, -111, -110, -108, -106, -104, -102, -101, -98, -96, -94, -92, -90, -88, -85, -83, -80, -78, -75, -73, -70, -67, -65, -62, -59, -56, -53, -50, -47, -44, -41, -38, -35, -32, -29, -26, -23, -20, -17, -14, -10, -7, -4, -1};
 
 // Pin definitions
 // Row select and enable
@@ -37,6 +38,9 @@ const int HKOE_BIT = 6;
 // Look up current step size
 volatile uint32_t currentStepSize;
 volatile uint8_t keyArray[7];
+
+volatile uint32_t currentLFOStepSize;
+volatile uint8_t postLFOStepSize;
 SemaphoreHandle_t keyArrayMutex;
 uint8_t knob0rotation;
 uint8_t knob1rotation;
@@ -47,15 +51,44 @@ uint8_t previousDelta;
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
-/*
+
 void sampleISR()
 {
     static uint32_t phaseAcc = 0;
+    
+    static uint32_t LFOphaseAcc = 0;
+ 
+    LFOphaseAcc += currentLFOStepSize; 
+
+    uint32_t LFOpitchamt = 255392044; //1 semitone, placeholder lfo pitch value, where 1 octave is represented by MAX_UINT32
+    postLFOStepSize = currentStepSize;
+
+    float LFOvolamt = 1; //placeholder volume automation
+    float VoutModifier = 0;
+    
+    // if ((LFOphaseAcc >> 24) < 128){
+    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * (LFOphaseAcc/MAX_UINT32-(1/4));
+    // }
+    // else{
+    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * ((1/2)-LFOphaseAcc/MAX_UINT32);
+    // }
+    
+    if ((LFOphaseAcc >> 24) < 128){
+         VoutModifier = LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+     }
+     else{
+         VoutModifier = LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+     }
+    
+
     phaseAcc += currentStepSize;
+
     int32_t Vout = (phaseAcc >> 24) - 128;
+    Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
+
     analogWrite(OUTR_PIN, Vout + 128);
 }
-*/
+
 
 // ALTERNATE WAVEFORM(Triangle)
 /*
@@ -186,7 +219,7 @@ void sampleISR(){
 // };
 
 // ALTERNATE WAVEFORM(Square)
-void sampleISR()
+/*void sampleISR()
 {
     static uint32_t phaseAcc = 0;
     phaseAcc += currentStepSize;
@@ -201,19 +234,17 @@ void sampleISR()
     }
     Vout = Vout >> (8 - knob3rotation);
     analogWrite(OUTR_PIN, Vout + 128);
-}
+}*/
 
-// ALTERNATE WAVEFORM(Sine, to be optimised)
 /*
-void sampleISR(){
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  double radians = phaseAcc/MAX_UINT32;
-  double sineScaled = std::sin(radians)*2147483646 + 0.5;
-  int32_t sineScaledFixed = static_cast<int32_t>(sineScaled);
+// ALTERNATE WAVEFORM\
 
-  int32_t Vout = (sineScaledFixed >> 24) - 128;
-  analogWrite(OUTR_PIN, Vout + 128);
+void sampleISR(){
+    static uint32_t phaseAcc = 0;
+    phaseAcc += currentStepSize;
+    int32_t Vout = (phaseAcc >> 24);
+    Vout = sine[Vout];
+    analogWrite(OUTR_PIN, Vout + 128);
 }
 */
 
@@ -392,8 +423,19 @@ void updateDisplayTask(void *pvParameters)
         // Update display
         xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
         highestBit = highest_unset_bit(keyArray);
+        if (highestBit < 0)
+        {
+            currentStepSize = 0;
+            currentLFOStepSize = 0;
+            postLFOStepSize = 0;
+        }
+        else
+        {
+            currentStepSize = stepSizes[highestBit];
+            currentLFOStepSize = 780903; //LFO of 4Hz, placeholder lfo speed
+        }
         xSemaphoreGive(keyArrayMutex);
-        currentStepSize = (highestBit < 0) ? 0 : stepSizes[highestBit];
+
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);

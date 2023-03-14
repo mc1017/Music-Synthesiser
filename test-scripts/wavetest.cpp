@@ -53,6 +53,36 @@ void sampleISR_sine(){
   WaveFile << sine[int(Vout/5.33)]+128 << std::endl;
 }
 
+void sampleISR_LFO()
+{
+    static uint32_t phaseAcc = 0;
+    
+    static uint32_t LFOphaseAcc = 0;
+    LFOphaseAcc += 780903; //LFO of 4Hz, placeholder lfo speed
+
+    uint32_t LFOpitchamt = 255392044; //1 semitone, placeholder lfo pitch value, where 1 octave is represented by MAX_UINT32
+    static uint32_t postLFOStepSize = currentStepSize;
+
+    //uint32_t LFOvolamt = 0;
+  
+    postLFOStepSize = currentStepSize + LFOphaseAcc;
+
+    /*
+    if ((LFOphaseAcc >> 24) < 128){
+        postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * (LFOphaseAcc/MAX_UINT32-(1/4));
+    }
+    else{
+        postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * ((1/2)-LFOphaseAcc/MAX_UINT32);
+    }
+    */
+
+    phaseAcc += postLFOStepSize;
+
+    int32_t Vout = (phaseAcc >> 24) - 128;
+
+    WaveFile << "LFOphaseAcc    " << LFOphaseAcc << "    postLFOStepSize    " << postLFOStepSize << "    currentStepSize    " << currentStepSize << std::endl;
+}
+
 int main(){
     int input;
     std::string type;
@@ -61,7 +91,10 @@ int main(){
     std::cout << "specify waveform (saw, triangle, square, sine)" << std::endl;
     std::cin >> type;
     currentStepSize = stepSizes[input];
-    if (type==("saw"))
+
+
+    if (type == "saw")
+
     {
         std::cout<<"ISR";
         for (int i = 0; i < 1000; i++)
@@ -69,7 +102,9 @@ int main(){
             sampleISR();
         }
     }
-    else if (type==("triangle"))
+
+    else if (type == "triangle")
+
     {
         std::cout<<"Tri";
         for (int i = 0; i < 1000; i++)
@@ -77,19 +112,30 @@ int main(){
             sampleISR_triangle();
         }
     }
-    else if (type ==("square"))
+
+    else if (type == "square")
+
     {
         for (int i = 0; i < 1000; i++)
         {
             sampleISR_square();
         }
     }
-    else if (type=="sine")
+
+    else if (type == "sine")
+
     {
         std::cout<<"Sine";
         for (int i = 0; i < 1000; i++)
         {
             sampleISR_sine();
+        }
+    }
+    else if (type == "LFO")
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            sampleISR_LFO();
         }
     }
     else

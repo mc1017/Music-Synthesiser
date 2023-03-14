@@ -53,6 +53,8 @@ uint8_t deviceID;
 
 // CAN queue
 QueueHandle_t msgInQ;
+QueueHandle_t msgOutQ;
+SemaphoreHandle_t CAN_TX_Semaphore;
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
@@ -328,6 +330,22 @@ uint8_t rotationDecoder(uint8_t &prevA, uint8_t &prevB, uint8_t currentA, uint8_
     prevB = currentB;
     return rotation;
 }
+
+void sendCanMsg(uint8_t byte0, uint8_t byte1, uint8_t byte2, uint8_t byte3)
+{
+    uint8_t TX_Message[8] = {0};
+    TX_Message[0] = byte0;
+    TX_Message[1] = byte1;
+    TX_Message[2] = byte2;
+    TX_Message[3] = byte3;
+    CAN_TX(0x111, TX_Message);
+    u8g2.setCursor(86, 30);
+    u8g2.print((char)TX_Message[0]);
+    u8g2.print(TX_Message[1]);
+    u8g2.print(TX_Message[2]);
+    u8g2.print(TX_Message[3]);
+}
+
 void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
@@ -350,6 +368,8 @@ void scanKeysTask(void *pvParameters)
         {
             setRow(i);
             delayMicroseconds(3);
+            // TEMP
+            sendCanMsg('M', 2, 4, 9);
             digitalWrite(OUT_PIN, OutPin[i]);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
@@ -406,6 +426,20 @@ void scanKeysTask(void *pvParameters)
         }
     }
 }
+
+void update_display()
+{
+    uint32_t ID;
+    uint8_t RX_Message[8] = {0};
+    xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
+    u8g2.setCursor(66, 30);
+    u8g2.print((char)RX_Message[0]);
+    u8g2.print(RX_Message[1]);
+    u8g2.print(RX_Message[2]);
+    u8g2.print(RX_Message[3]);
+    // transfer internal memory to the display
+}
+
 void updateDisplayTask(void *pvParameters)
 {
     int highestBit = -1;
@@ -428,6 +462,7 @@ void updateDisplayTask(void *pvParameters)
         currentStepSize = (highestBit < 0) ? 0 : stepSizes[highestBit];
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
+        update_display();
         // u8g2.print(currentStepSize, HEX);
         u8g2.sendBuffer(); // transfer internal memory to the display
 
@@ -559,20 +594,30 @@ void CAN_RX_ISR(void)
     xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
 
+void CAN_TX_ISR(void)
+{
+    xSemaphoreGiveFromISR(CAN_TX_Semaphore, NULL);
+}
+
 void canBusInitRoutine()
 {
+    // Initialise CAN TX semaphore
+    CAN_TX_Semaphore = xSemaphoreCreateCounting(3, 3);
+
     // Initialize CAN bus and disable looping
-    uint32_t status = CAN_Init(false);
+    uint32_t status = CAN_Init(true);
 
     // Set filters for CAN signals
     status = setCANFilter(0x111, 0x7ff); // Send Handshake Device Info
-    status = setCANFilter(0x222, 0x7ff); // End Handshake Sequence
+    // status = setCANFilter(0x222, 0x7ff); // End Handshake Sequence
 
     CAN_RegisterRX_ISR(CAN_RX_ISR);
+    CAN_RegisterTX_ISR(CAN_TX_ISR);
 
     status = CAN_Start();
 
     msgInQ = xQueueCreate(36, 8);
+    msgOutQ = xQueueCreate(36, 8);
 }
 
 void setup()

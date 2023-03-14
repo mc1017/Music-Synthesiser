@@ -44,6 +44,11 @@ uint8_t knob2rotation;
 uint8_t knob3rotation;
 uint8_t previousDelta;
 
+// Handshake out signals (default to high on startup)
+volatile uint8_t OutPin[7] = {'0', '0', '0', '1', '1', '1', '1'};
+
+uint8_t deviceID;
+
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
@@ -217,6 +222,13 @@ void sampleISR(){
 }
 */
 
+uint8_t getDeviceID()
+{
+    uint32_t uid = HAL_GetUIDw0();
+    // Create a hash function to process UID
+    return (uid >> 16) ^ (uid >> 8) ^ uid;
+}
+
 void setRow(uint8_t rowIdx)
 {
     // Set row select enable pin (REN) high
@@ -329,10 +341,11 @@ void scanKeysTask(void *pvParameters)
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
-        for (uint8_t i = 0; i < 5; i++)
+        for (uint8_t i = 0; i < 7; i++)
         {
             setRow(i);
             delayMicroseconds(3);
+            digitalWrite(OUT_PIN, OutPin[i]);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
             if (i == 3)
@@ -364,11 +377,25 @@ void scanKeysTask(void *pvParameters)
                 u8g2.setCursor(40, 20);
                 u8g2.print(knob0rotation);
             }
+            else if (i == 5)
+            {
+                uint8_t currentWestHS = (keyArray[i] & 0b00001000) >> 3;
+                u8g2.setCursor(90, 20);
+                u8g2.print(currentWestHS);
+            }
+            else if (i == 6)
+            {
+                uint8_t currentEastHS = (keyArray[i] & 0b00001000) >> 3;
+                u8g2.setCursor(90, 30);
+                u8g2.print(currentEastHS);
+            }
             else
             {
-                u8g2.setCursor(2 + 10 * i, 20);
+                u8g2.setCursor(2 + 10 * i, 30);
                 u8g2.print(keyArray[i], HEX);
             }
+            u8g2.setCursor(80, 20);
+            u8g2.print(deviceID);
 
             xSemaphoreGive(keyArrayMutex);
         }
@@ -417,6 +444,72 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value)
     digitalWrite(REN_PIN, LOW);
 }
 
+bool handshakeRoutine(uint8_t &position)
+{
+    bool westMost = false;
+    bool eastMost = false;
+    setRow(5);
+    delayMicroseconds(3);
+    uint8_t westHS = (readCols() & 0b00001000) >> 3;
+    setRow(6);
+    delayMicroseconds(3);
+    uint8_t eastHS = (readCols() & 0b00001000) >> 3;
+    // Initial detection
+    if (westHS && eastHS)
+    {
+        // Only Module
+        position = 0;
+        return false;
+    }
+    if (westHS)
+    {
+        // West-most Module
+        westMost = true;
+
+        // Turn East HS signal off
+        setRow(6);
+        delayMicroseconds(3);
+        digitalWrite(OUT_PIN, 0);
+
+        // TODO: broadcast CAN signal
+
+        // Exit function
+        position = 0;
+        return true;
+    }
+    if (eastHS)
+    {
+        // East-most Module
+        eastMost = true;
+    }
+
+    bool detect = false;
+    uint8_t eastHS_prev = 0;
+    while (!detect)
+    {
+        setRow(6);
+        delayMicroseconds(3);
+        eastHS = (readCols() & 0b00001000) >> 3;
+
+        // Recieve and decode CAN signal
+
+        if (eastHS != eastHS_prev)
+        {
+            position = 1 /*CAN position + 1*/;
+
+            // Turn East HS signal off
+            setRow(6);
+            delayMicroseconds(3);
+            digitalWrite(OUT_PIN, 0);
+
+            // TODO: broadcast CAN signal
+
+            return true;
+        }
+    }
+    return false;
+}
+
 void setup()
 {
     // put your setup code here, to run once:
@@ -437,6 +530,9 @@ void setup()
     pinMode(C3_PIN, INPUT);
     pinMode(JOYX_PIN, INPUT);
     pinMode(JOYY_PIN, INPUT);
+
+    // Handshake routine
+    deviceID = HAL_GetUIDw0();
 
     // Initialise display
     setOutMuxBit(DRST_BIT, LOW); // Assert display logic reset

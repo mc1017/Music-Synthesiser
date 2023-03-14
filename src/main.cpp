@@ -60,31 +60,29 @@ void sampleISR()
  
     LFOphaseAcc += currentLFOStepSize; 
 
-    uint32_t LFOpitchamt = 255392044; //1 semitone, placeholder lfo pitch value, where 1 octave is represented by MAX_UINT32
     postLFOStepSize = currentStepSize;
 
     float LFOvolamt = 1; //placeholder volume automation
+    float LFOpitchamt = 0.0833333333; //placeholder pitch automation
     float VoutModifier = 0;
-    
-    // if ((LFOphaseAcc >> 24) < 128){
-    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * (LFOphaseAcc/MAX_UINT32-(1/4));
-    // }
-    // else{
-    //     postLFOStepSize = currentStepSize * (1+LFOpitchamt/MAX_UINT32) * ((1/2)-LFOphaseAcc/MAX_UINT32);
-    // }
+    float stepModifier = 0;
     
     if ((LFOphaseAcc >> 24) < 128){
-         VoutModifier = LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
      else{
-         VoutModifier = LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
     
-
-    phaseAcc += currentStepSize;
+    postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
+    phaseAcc += postLFOStepSize;
 
     int32_t Vout = (phaseAcc >> 24) - 128;
+
     Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
+    Vout = Vout >> (8 - knob3rotation);
 
     analogWrite(OUTR_PIN, Vout + 128);
 }

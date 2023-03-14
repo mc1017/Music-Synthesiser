@@ -39,8 +39,9 @@ const int HKOE_BIT = 6;
 volatile uint32_t currentStepSize;
 volatile uint8_t keyArray[7];
 
-volatile uint32_t currentLFOStepSize;
-volatile uint8_t postLFOStepSize;
+volatile uint32_t currentVolLFOStepSize;
+volatile uint32_t currentPitchLFOStepSize;
+volatile uint32_t postLFOStepSize;
 SemaphoreHandle_t keyArrayMutex;
 uint8_t knob0rotation;
 uint8_t knob1rotation;
@@ -52,57 +53,91 @@ uint8_t previousDelta;
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
 
-void sampleISR()
-{
-    static uint32_t phaseAcc = 0;
+// void sampleISR()
+// {
+//     static uint32_t phaseAcc = 0;
     
-    static uint32_t LFOphaseAcc = 0;
+//     static uint32_t VolLFOphaseAcc = 0;
+//     static uint32_t PitchLFOphaseAcc = 0;
  
-    LFOphaseAcc += currentLFOStepSize; 
+//     VolLFOphaseAcc += currentVolLFOStepSize; 
+//     PitchLFOphaseAcc += currentPitchLFOStepSize;
+
+//     postLFOStepSize = currentStepSize;
+
+//     float LFOvolamt = 0; //placeholder volume automation
+//     float LFOpitchamt = 0.0833333333; //placeholder pitch automation
+//     float VoutModifier = 0;
+//     float stepModifier = 0;
+    
+//     if ((VolLFOphaseAcc >> 24) < 128){
+//          VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+//          stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+//      }
+//      else{
+//          VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+//          stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+//      }
+
+//      stepModifier = stepModifier + (1-stepModifier)/2; //shift the pitch to be centered at currentStepSize
+    
+//     postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
+//     phaseAcc += postLFOStepSize;
+
+//     int32_t Vout = (phaseAcc >> 24) - 128;
+
+//     Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
+//     Vout = Vout >> (8 - knob3rotation);
+
+//     analogWrite(OUTR_PIN, Vout + 128);
+// }
+
+
+// ALTERNATE WAVEFORM(Triangle)
+
+void sampleISR(){
+  static uint32_t phaseAcc = 0;
+    
+    static uint32_t VolLFOphaseAcc = 0;
+    static uint32_t PitchLFOphaseAcc = 0;
+ 
+    VolLFOphaseAcc += currentVolLFOStepSize; 
+    PitchLFOphaseAcc += currentPitchLFOStepSize;
 
     postLFOStepSize = currentStepSize;
 
-    float LFOvolamt = 1; //placeholder volume automation
+    float LFOvolamt = 0; //placeholder volume automation
     float LFOpitchamt = 0.0833333333; //placeholder pitch automation
     float VoutModifier = 0;
     float stepModifier = 0;
     
-    if ((LFOphaseAcc >> 24) < 128){
-         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
-         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+    if ((VolLFOphaseAcc >> 24) < 128){
+         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
      else{
-         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
-         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(PitchLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
+
+    stepModifier = stepModifier + (1-stepModifier)/2; //shift the pitch to be centered at currentStepSize
     
     postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
     phaseAcc += postLFOStepSize;
 
-    int32_t Vout = (phaseAcc >> 24) - 128;
+    uint32_t Vout = 0;
 
-    Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
-    Vout = Vout >> (8 - knob3rotation);
-
-    analogWrite(OUTR_PIN, Vout + 128);
-}
-
-
-// ALTERNATE WAVEFORM(Triangle)
-/*
-void sampleISR(){
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  int32_t Vout = 0;
   if ((phaseAcc >> 24) < 128){
     Vout = (phaseAcc >> 24) - 128;
   }
   else{
     Vout = 255 - (phaseAcc >> 24);
   }
+
+  Vout = Vout >> (8 - knob3rotation);
   analogWrite(OUTR_PIN, Vout + 128);
 }
-*/
+
 
 // class Knob
 // {
@@ -424,13 +459,15 @@ void updateDisplayTask(void *pvParameters)
         if (highestBit < 0)
         {
             currentStepSize = 0;
-            currentLFOStepSize = 0;
+            currentVolLFOStepSize = 0;
+            currentPitchLFOStepSize = 0;
             postLFOStepSize = 0;
         }
         else
         {
             currentStepSize = stepSizes[highestBit];
-            currentLFOStepSize = 780903; //LFO of 4Hz, placeholder lfo speed
+            currentVolLFOStepSize = 780903; //LFO of 4Hz, placeholder lfo speed
+            currentPitchLFOStepSize = 2342709; //LFO of 12Hz, placeholder lfo speed
         }
         xSemaphoreGive(keyArrayMutex);
 

@@ -8,8 +8,8 @@
 const std::uint32_t MAX_UINT32 = 4294967295;
 const std::uint32_t stepSizes [] = {25538028, 27056599, 28665468, 30370005, 32175899, 34089178, 36116226, 38263809, 40539093, 42949673, 45503593, 48209378, 51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756, 102152113, 108226394, 114661870, 121480020, 128703598, 136356712, 144464904, 153055234, 162156372, 171798692, 182014374, 192837512};
 volatile std::uint32_t currentStepSize;
-volatile uint32_t currentLFOStepSize;
-volatile uint8_t postLFOStepSize;
+volatile uint32_t currentVolLFOStepSize;
+volatile uint32_t postLFOStepSize;
 int Vout = 0;
 
 std::ofstream WaveFile("waves.txt");
@@ -59,9 +59,10 @@ void sampleISR_LFO()
 {
     static uint32_t phaseAcc = 0;
     
-    static uint32_t LFOphaseAcc = 0;
- 
-    LFOphaseAcc += currentLFOStepSize; 
+    static uint32_t VolLFOphaseAcc = 0;
+
+    currentVolLFOStepSize = 780903;
+    VolLFOphaseAcc += currentVolLFOStepSize; 
 
     postLFOStepSize = currentStepSize;
 
@@ -70,13 +71,13 @@ void sampleISR_LFO()
     float VoutModifier = 0;
     float stepModifier = 0;
     
-    if ((LFOphaseAcc >> 24) < 128){
-         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
-         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+    if ((VolLFOphaseAcc >> 24) < 128){
+         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
      else{
-         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
-         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(LFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
+         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc)/static_cast<float>(MAX_UINT32));
      }
     
     postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
@@ -87,7 +88,9 @@ void sampleISR_LFO()
     Vout = static_cast<int>(static_cast<float>(Vout)*VoutModifier);
     //Vout = Vout >> (8 - knob3rotation);
 
-    WaveFile << "LFOphaseAcc    " << LFOphaseAcc << "    postLFOStepSize    " << postLFOStepSize << "    currentStepSize    " << currentStepSize << std::endl;
+    WaveFile << Vout;
+
+    //WaveFile << "VolLFOphaseAcc    " << VolLFOphaseAcc << "    postLFOStepSize    " << postLFOStepSize << "    currentStepSize    " << currentStepSize << "    stepModifier    " << stepModifier <<  std::endl;
 }
 
 int main(){

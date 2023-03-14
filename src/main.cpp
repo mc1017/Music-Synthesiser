@@ -38,6 +38,9 @@ const int HKOE_BIT = 6;
 volatile uint32_t currentStepSize;
 volatile uint8_t keyArray[7];
 SemaphoreHandle_t keyArrayMutex;
+SemaphoreHandle_t minMaxMutex;
+SemaphoreHandle_t rotationMutex;
+
 uint8_t knob0rotation;
 uint8_t knob1rotation;
 uint8_t knob2rotation;
@@ -46,16 +49,6 @@ uint8_t previousDelta;
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
-
-/*
-void sampleISR()
-{
-    static uint32_t phaseAcc = 0;
-    phaseAcc += currentStepSize;
-    int32_t Vout = (phaseAcc >> 24) - 128;
-    analogWrite(OUTR_PIN, Vout + 128);
-}
-*/
 
 // ALTERNATE WAVEFORM(Triangle)
 /*
@@ -73,135 +66,107 @@ void sampleISR(){
 }
 */
 
-// class Knob
-// {
-// public:
-//     Knob(int minValue, int maxValue)
-//         : minValue(minValue), maxValue(maxValue) {}
+class Knob
+{
+public:
+    Knob() {}
 
-//     uint8_t rotationDecoder(uint8_t currentA, uint8_t currentB, uint8_t rotationIndex)
-//     {
-//         // Decode knob 3 into rotation variable
-//         int delta = 0;
-//         uint8_t *rotation;
-//         uint8_t *prevA;
-//         uint8_t *prevB;
-//         if (rotationIndex == 0)
-//         {
-//             rotation = &knob0rotation;
-//             prevA = &prev0A;
-//             prevB = &prev0B;
-//         }
-//         else if (rotationIndex == 1)
-//         {
-//             rotation = &knob1rotation;
-//             prevA = &prev1A;
-//             prevB = &prev1B;
-//         }
-//         else if (rotationIndex == 2)
-//         {
-//             rotation = &knob2rotation;
-//             prevA = &prev2A;
-//             prevB = &prev2B;
-//         }
-//         else if (rotationIndex == 3)
-//         {
-//             rotation = &knob3rotation;
-//             prevA = &prev3A;
-//             prevB = &prev3B;
-//         }
-//         if (*prevA == 1 && *prevB == 1 && currentA == 0 && currentB == 1)
-//         {
-//             delta = 1;
-//         }
-//         else if (*prevA == 1 && *prevB == 0 && currentB == 0 && currentA == 0)
-//         {
-//             delta = -1;
-//         }
-//         else if (*prevA == 0 && *prevB == 0 && currentA == 1 && currentB == 0)
-//         {
-//             delta = 1;
-//         }
-//         else if (*prevA == 0 && *prevB == 1 && currentB == 1 && currentA == 1)
-//         {
-//             delta = -1;
-//         }
+    Knob(uint8_t minValue, uint8_t maxValue)
+        : minValue(minValue), maxValue(maxValue), rotation(0), prevA(0), prevB(0) {}
 
-//         uint8_t tempRotation = *rotation + delta;
+    void setLimits(uint8_t minValue, uint8_t maxValue)
+    {
+        // xSemaphoreTake(minMaxMutex, portMAX_DELAY);
+        this->minValue = minValue;
+        this->maxValue = maxValue;
+        // xSemaphoreGive(minMaxMutex);
+    }
 
-//         // Check that the new rotation value is within permitted bounds
-//         if (tempRotation >= minValue && tempRotation <= maxValue)
-//         {
-//             // Update knob3Rotation variable atomically
-//             *rotation = tempRotation;
-//         }
+    uint8_t getRotation() const
+    {
+        uint8_t result;
+        // xSemaphoreTake(rotationMutex, portMAX_DELAY);
+        result = rotation;
+        // xSemaphoreGive(rotationMutex);
+        return result;
+    }
 
-//         // Store current state as previous state
-//         *prevA = currentA;
-//         *prevB = currentB;
-//         return *rotation;
-//     }
+    void updateRotation(uint8_t currentA, uint8_t currentB)
+    {
 
-//     uint8_t getRotation(uint8_t knobIndex) const
-//     {
-//         if (knobIndex == 0)
-//         {
-//             return knob0rotation;
-//         }
-//         else if (knobIndex == 1)
-//         {
-//             return knob1rotation;
-//         }
-//         else if (knobIndex == 2)
-//         {
-//             return knob2rotation;
-//         }
-//         else
-//         {
-//             return knob3rotation;
-//         }
-//     }
+        int delta = 0;
 
-//     void setLimits(int minVal, int maxVal)
-//     {
-//         minValue = minVal;
-//         maxValue = maxVal;
-//     }
+        if (prevA == 1 && prevB == 1 && currentA == 0 && currentB == 1)
+        {
+            delta = 1;
+        }
+        else if (prevA == 1 && prevB == 0 && currentB == 0 && currentA == 0)
+        {
+            delta = -1;
+        }
+        else if (prevA == 0 && prevB == 0 && currentA == 1 && currentB == 0)
+        {
+            delta = 1;
+        }
+        else if (prevA == 0 && prevB == 1 && currentB == 1 && currentA == 1)
+        {
+            delta = -1;
+        }
 
-// private:
-//     uint8_t prev0A = 0;
-//     uint8_t prev0B = 0;
-//     uint8_t prev1A = 0;
-//     uint8_t prev1B = 0;
-//     uint8_t prev2A = 0;
-//     uint8_t prev2B = 0;
-//     uint8_t prev3A = 0;
-//     uint8_t prev3B = 0;
-//     uint8_t minValue;
-//     uint8_t maxValue;
-//     uint8_t knob0rotation;
-//     uint8_t knob1rotation;
-//     uint8_t knob2rotation;
-//     uint8_t knob3rotation;
-// };
+        uint8_t tempRotation = rotation + delta;
 
-// ALTERNATE WAVEFORM(Square)
+        // Check that the new rotation value is within permitted bounds
+        if (tempRotation >= minValue && tempRotation <= maxValue)
+        {
+            // Update knob3Rotation variable atomically
+            rotation = tempRotation;
+        }
+
+        // Store current state as previous state
+        prevA = currentA;
+        prevB = currentB;
+    }
+
+private:
+    uint8_t prevA;
+    uint8_t prevB;
+    uint8_t minValue;
+    uint8_t maxValue;
+    uint8_t rotation;
+};
+
+Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 10)};
+
 void sampleISR()
 {
     static uint32_t phaseAcc = 0;
     phaseAcc += currentStepSize;
-    int32_t Vout = 0;
-    if ((phaseAcc >> 24) < 128)
+    int32_t Vout = (phaseAcc >> 24) - 128;
+    Vout = Vout >> (10 - knob[3].getRotation());
+    if (knob[3].getRotation() == 0)
     {
-        Vout = 0 - 128;
+        Vout = -128;
     }
-    else
-    {
-        Vout = 255 - 128;
-    }
-    Vout = Vout >> (8 - knob3rotation);
     analogWrite(OUTR_PIN, Vout + 128);
 }
+
+// ALTERNATE WAVEFORM(Square)
+// void sampleISR()
+// {
+//     static uint32_t phaseAcc = 0;
+//     phaseAcc += currentStepSize;
+//     int32_t Vout = 0;
+//     if ((phaseAcc >> 24) < 128)
+//     {
+//         Vout = 0 - 128;
+//     }
+//     else
+//     {
+//         Vout = 255 - 128;
+//     }
+//     Vout = Vout >> (10 - knob[3].getRotation());
+//     analogWrite(OUTR_PIN, Vout + 128);
+// }
 
 // ALTERNATE WAVEFORM(Sine, to be optimised)
 /*
@@ -275,42 +240,7 @@ int highest_unset_bit(volatile uint8_t array[])
     }
     return i;
 }
-uint8_t rotationDecoder(uint8_t &prevA, uint8_t &prevB, uint8_t currentA, uint8_t currentB, uint8_t rotation)
-{
-    // Decode knob 3 into rotation variable
-    int delta = 0;
 
-    if (prevA == 1 && prevB == 1 && currentA == 0 && currentB == 1)
-    {
-        delta = 1;
-    }
-    else if (prevA == 1 && prevB == 0 && currentB == 0 && currentA == 0)
-    {
-        delta = -1;
-    }
-    else if (prevA == 0 && prevB == 0 && currentA == 1 && currentB == 0)
-    {
-        delta = 1;
-    }
-    else if (prevA == 0 && prevB == 1 && currentB == 1 && currentA == 1)
-    {
-        delta = -1;
-    }
-
-    uint8_t tempRotation = rotation + delta;
-
-    // Check that the new rotation value is within permitted bounds
-    if (tempRotation >= 0 && tempRotation <= 8)
-    {
-        // Update knob3Rotation variable atomically
-        rotation = tempRotation;
-    }
-
-    // Store current state as previous state
-    prevA = currentA;
-    prevB = currentB;
-    return rotation;
-}
 void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
@@ -335,41 +265,43 @@ void scanKeysTask(void *pvParameters)
             delayMicroseconds(3);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
-            if (i == 3)
+            uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
+            uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
+            uint8_t currentA1 = keyArray[i] & 0b00000001;
+            uint8_t currentB1 = (keyArray[i] & 0b00000010) >> 1;
+            uint8_t currentA2 = (keyArray[i] & 0b00000100) >> 2;
+            uint8_t currentB2 = (keyArray[i] & 0b00001000) >> 3;
+            uint8_t currentA3 = keyArray[i] & 0b00000001;
+            uint8_t currentB3 = (keyArray[i] & 0b00000010) >> 1;
+            switch (i)
             {
-                uint8_t currentA3 = keyArray[i] & 0b00000001;
-                uint8_t currentB3 = (keyArray[i] & 0b00000010) >> 1;
-                knob3rotation = rotationDecoder(prevA3, prevB3, currentA3, currentB3, knob3rotation);
-                u8g2.setCursor(70, 20);
+            case 3:
+                knob[3].updateRotation(currentA3, currentB3);
+                knob3rotation = knob[3].getRotation();
+                u8g2.setCursor(80, 20);
                 u8g2.print(knob3rotation);
-                knobIndex = 2;
-                uint8_t currentA2 = (keyArray[i] & 0b00000100) >> 2;
-                uint8_t currentB2 = (keyArray[i] & 0b00001000) >> 3;
-                knob2rotation = rotationDecoder(prevA2, prevB2, currentA2, currentB2, knob2rotation);
-                u8g2.setCursor(60, 20);
+                knob[2].updateRotation(currentA2, currentB2);
+                knob2rotation = knob[2].getRotation();
+                u8g2.setCursor(65, 20);
                 u8g2.print(knob2rotation);
-            }
-            else if (i == 4)
-            {
-                knobIndex = 1;
-                uint8_t currentA1 = keyArray[i] & 0b00000001;
-                uint8_t currentB1 = (keyArray[i] & 0b00000010) >> 1;
-                knob1rotation = rotationDecoder(prevA1, prevB1, currentA1, currentB1, knob1rotation);
+                break;
+            case 4:
+                knob[1].updateRotation(currentA1, currentB1);
+                knob1rotation = knob[1].getRotation();
                 u8g2.setCursor(50, 20);
                 u8g2.print(knob1rotation);
-                knobIndex = 0;
-                uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
-                uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
-                knob0rotation = rotationDecoder(prevA0, prevB0, currentA0, currentB0, knob0rotation);
-                u8g2.setCursor(40, 20);
+                knob[0].updateRotation(currentA0, currentB0);
+                knob0rotation = knob[0].getRotation();
+                u8g2.setCursor(35, 20);
                 u8g2.print(knob0rotation);
-            }
-            else
-            {
+                break;
+            case 5:
+
+            default:
                 u8g2.setCursor(2 + 10 * i, 20);
                 u8g2.print(keyArray[i], HEX);
+                break;
             }
-
             xSemaphoreGive(keyArrayMutex);
         }
     }
@@ -449,13 +381,14 @@ void setup()
     sampleTimer->setOverflow(22000, HERTZ_FORMAT);
     sampleTimer->attachInterrupt(sampleISR);
     sampleTimer->resume();
-
+    minMaxMutex = xSemaphoreCreateMutex();
     keyArrayMutex = xSemaphoreCreateMutex();
+    rotationMutex = xSemaphoreCreateMutex();
     TaskHandle_t scanKeysHandle = NULL;
     xTaskCreate(
         scanKeysTask, /* Function that implements the task */
         "scanKeys",   /* Text name for the task */
-        200,          /* Stack size in words, not bytes */
+        500,          /* Stack size in words, not bytes */
         NULL,         /* Parameter passed into the task */
         2,            /* Task priority */
         &scanKeysHandle);
@@ -464,7 +397,7 @@ void setup()
     xTaskCreate(
         updateDisplayTask, /* Function that implements the task */
         "updateDisplay",   /* Text name for the task */
-        200,               /* Stack size in words, not bytes */
+        500,               /* Stack size in words, not bytes */
         NULL,              /* Parameter passed into the task */
         1,                 /* Task priority */
         &scanKeysHandle);

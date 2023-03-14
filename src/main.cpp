@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <STM32FreeRTOS.h>
+#include <ES_CAN.h>
 
 // Constants
 const uint32_t interval = 100;               // Display update interval
@@ -47,7 +48,11 @@ uint8_t previousDelta;
 // Handshake out signals (default to high on startup)   v    v
 volatile uint8_t OutPin[7] = {'0', '0', '0', '1', '1', '1', '1'};
 
+// Unique device ID
 uint8_t deviceID;
+
+// CAN queue
+QueueHandle_t msgInQ;
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
@@ -546,6 +551,30 @@ bool handshakeRoutine(uint8_t &position)
     return false;
 }
 
+void CAN_RX_ISR(void)
+{
+    uint8_t RX_Message_ISR[8];
+    uint32_t ID;
+    CAN_RX(ID, RX_Message_ISR);
+    xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
+}
+
+void canBusInitRoutine()
+{
+    // Initialize CAN bus and disable looping
+    uint32_t status = CAN_Init(false);
+
+    // Set filters for CAN signals
+    status = setCANFilter(0x111, 0x7ff); // Send Handshake Device Info
+    status = setCANFilter(0x222, 0x7ff); // End Handshake Sequence
+
+    CAN_RegisterRX_ISR(CAN_RX_ISR);
+
+    status = CAN_Start();
+
+    msgInQ = xQueueCreate(36, 8);
+}
+
 void setup()
 {
     // put your setup code here, to run once:
@@ -569,6 +598,8 @@ void setup()
 
     // Handshake routine
     deviceID = HAL_GetUIDw0();
+
+    canBusInitRoutine();
 
     // Initialise display
     setOutMuxBit(DRST_BIT, LOW); // Assert display logic reset

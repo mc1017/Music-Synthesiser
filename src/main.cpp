@@ -76,26 +76,22 @@ public:
 
     void setLimits(uint8_t minValue, uint8_t maxValue)
     {
-        // xSemaphoreTake(minMaxMutex, portMAX_DELAY);
+        xSemaphoreTake(minMaxMutex, portMAX_DELAY);
         this->minValue = minValue;
         this->maxValue = maxValue;
-        // xSemaphoreGive(minMaxMutex);
+        xSemaphoreGive(minMaxMutex);
     }
 
     uint8_t getRotation() const
     {
-        uint8_t result;
-        // xSemaphoreTake(rotationMutex, portMAX_DELAY);
-        result = rotation;
-        // xSemaphoreGive(rotationMutex);
-        return result;
+        return rotation;
     }
 
     void updateRotation(uint8_t currentA, uint8_t currentB)
     {
 
         int delta = 0;
-
+        xSemaphoreTake(rotationMutex, portMAX_DELAY);
         if (prevA == 1 && prevB == 1 && currentA == 0 && currentB == 1)
         {
             delta = 1;
@@ -118,10 +114,9 @@ public:
         // Check that the new rotation value is within permitted bounds
         if (tempRotation >= minValue && tempRotation <= maxValue)
         {
-            // Update knob3Rotation variable atomically
-            rotation = tempRotation;
+            __atomic_store_n(&rotation, tempRotation, __ATOMIC_RELAXED);
         }
-
+        xSemaphoreGive(rotationMutex);
         // Store current state as previous state
         prevA = currentA;
         prevB = currentB;
@@ -302,7 +297,7 @@ void updateDisplayTask(void *pvParameters)
     const uint32_t stepSizes[] = {
         51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
     };
-
+    const uint32_t notes[] = {};
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
     while (1)
@@ -371,6 +366,7 @@ void setup()
     sampleTimer->setOverflow(22000, HERTZ_FORMAT);
     sampleTimer->attachInterrupt(sampleISR);
     sampleTimer->resume();
+
     minMaxMutex = xSemaphoreCreateMutex();
     keyArrayMutex = xSemaphoreCreateMutex();
     rotationMutex = xSemaphoreCreateMutex();

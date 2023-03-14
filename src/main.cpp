@@ -245,17 +245,7 @@ void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    // Knob knob = Knob(0, 8);
-    uint8_t knobIndex = 0;
-    uint8_t knobValue;
-    uint8_t prevA3;
-    uint8_t prevB3;
-    uint8_t prevA2;
-    uint8_t prevB2;
-    uint8_t prevA1;
-    uint8_t prevB1;
-    uint8_t prevA0;
-    uint8_t prevB0;
+
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);

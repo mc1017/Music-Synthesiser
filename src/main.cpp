@@ -44,7 +44,7 @@ uint8_t knob2rotation;
 uint8_t knob3rotation;
 uint8_t previousDelta;
 
-// Handshake out signals (default to high on startup)
+// Handshake out signals (default to high on startup)   v    v
 volatile uint8_t OutPin[7] = {'0', '0', '0', '1', '1', '1', '1'};
 
 uint8_t deviceID;
@@ -448,12 +448,24 @@ bool handshakeRoutine(uint8_t &position)
 {
     bool westMost = false;
     bool eastMost = false;
+    bool detect = false;
+
+    // Set East & West HS output signals
+    setRow(5);
+    delayMicroseconds(3);
+    digitalWrite(OUT_PIN, HIGH);
+    setRow(6);
+    delayMicroseconds(3);
+    digitalWrite(OUT_PIN, HIGH);
+
+    // Get current East & West HS input signals
     setRow(5);
     delayMicroseconds(3);
     uint8_t westHS = (readCols() & 0b00001000) >> 3;
     setRow(6);
     delayMicroseconds(3);
     uint8_t eastHS = (readCols() & 0b00001000) >> 3;
+
     // Initial detection
     if (westHS && eastHS)
     {
@@ -469,13 +481,13 @@ bool handshakeRoutine(uint8_t &position)
         // Turn East HS signal off
         setRow(6);
         delayMicroseconds(3);
-        digitalWrite(OUT_PIN, 0);
+        digitalWrite(OUT_PIN, LOW);
 
         // TODO: broadcast CAN signal
 
-        // Exit function
+        // Go to end of function to wait
         position = 0;
-        return true;
+        detect = true;
     }
     if (eastHS)
     {
@@ -483,7 +495,6 @@ bool handshakeRoutine(uint8_t &position)
         eastMost = true;
     }
 
-    bool detect = false;
     uint8_t eastHS_prev = 0;
     while (!detect)
     {
@@ -491,7 +502,7 @@ bool handshakeRoutine(uint8_t &position)
         delayMicroseconds(3);
         eastHS = (readCols() & 0b00001000) >> 3;
 
-        // Recieve and decode CAN signal
+        // TODO:  Recieve and decode CAN signal
 
         if (eastHS != eastHS_prev)
         {
@@ -500,13 +511,38 @@ bool handshakeRoutine(uint8_t &position)
             // Turn East HS signal off
             setRow(6);
             delayMicroseconds(3);
-            digitalWrite(OUT_PIN, 0);
+            digitalWrite(OUT_PIN, LOW);
 
             // TODO: broadcast CAN signal
 
+            detect = true;
+        }
+    }
+
+    if (eastMost)
+    {
+        // TODO:  Send CAN signal to end handshake process
+
+        return true;
+    }
+
+    bool waitMode = true;
+    while (waitMode)
+    {
+        // TODO: recieve CAN signal from other modules
+
+        if (true /* Recieved another Module ID*/)
+        {
+            // TODO: Add to module ID list
+        }
+
+        if (true /* Recieved ending signal*/)
+        {
             return true;
         }
     }
+
+    // Default to return false
     return false;
 }
 

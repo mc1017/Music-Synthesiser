@@ -2,6 +2,7 @@
 #include <U8g2lib.h>
 #include <STM32FreeRTOS.h>
 #include <ES_CAN.h>
+#include <vector>
 
 // Constants
 const uint32_t interval = 100;               // Display update interval
@@ -45,8 +46,14 @@ uint8_t knob2rotation;
 uint8_t knob3rotation;
 uint8_t previousDelta;
 
-// Handshake out signals (default to high on startup)   v    v
-volatile uint8_t OutPin[7] = {'0', '0', '0', '1', '1', '1', '1'};
+// Handshake out signals (default to high on startup)
+volatile uint8_t OutPin[7] = {0, 0, 0, 1, 1, 1, 1};
+
+// Handshake device ID array
+std::vector<uint32_t> moduleID;
+
+// Global variable to hold the device's position
+uint8_t position;
 
 // Unique device ID
 uint8_t deviceID;
@@ -55,6 +62,12 @@ uint8_t deviceID;
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
 SemaphoreHandle_t CAN_TX_Semaphore;
+
+// CAN Headers
+const uint32_t ID_MODULE_INFO = 0x111;
+
+uint8_t east;
+uint8_t west;
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
@@ -259,9 +272,8 @@ void setRow(uint8_t rowIdx)
     {
         digitalWrite(RA2_PIN, HIGH);
     }
-    // Set row select enable pin (REN) high
-    digitalWrite(REN_PIN, HIGH);
 }
+
 uint8_t readCols()
 {
 
@@ -331,19 +343,26 @@ uint8_t rotationDecoder(uint8_t &prevA, uint8_t &prevB, uint8_t currentA, uint8_
     return rotation;
 }
 
-void sendCanMsg(uint8_t byte0, uint8_t byte1, uint8_t byte2, uint8_t byte3)
+void sendCAN_ModuleInfo(uint8_t position, uint32_t ID)
 {
     uint8_t TX_Message[8] = {0};
-    TX_Message[0] = byte0;
-    TX_Message[1] = byte1;
-    TX_Message[2] = byte2;
-    TX_Message[3] = byte3;
-    CAN_TX(0x111, TX_Message);
-    u8g2.setCursor(86, 30);
-    u8g2.print((char)TX_Message[0]);
-    u8g2.print(TX_Message[1]);
-    u8g2.print(TX_Message[2]);
-    u8g2.print(TX_Message[3]);
+    TX_Message[0] = position;
+    TX_Message[1] = (uint8_t)(ID >> 24); // Most significant byte
+    TX_Message[2] = (uint8_t)(ID >> 16);
+    TX_Message[3] = (uint8_t)(ID >> 8);
+    TX_Message[4] = (uint8_t)(ID); // Least significant byte
+
+    // Send CAN Message
+    CAN_TX(ID_MODULE_INFO, TX_Message);
+}
+
+void sendCAN_HSEnd()
+{
+    uint8_t TX_Message[8] = {0};
+    TX_Message[0] = 'E';
+
+    // Send CAN Message
+    CAN_TX(ID_MODULE_INFO, TX_Message);
 }
 
 void scanKeysTask(void *pvParameters)
@@ -368,11 +387,11 @@ void scanKeysTask(void *pvParameters)
         {
             setRow(i);
             delayMicroseconds(3);
-            // TEMP
-            sendCanMsg('M', 2, 4, 9);
             digitalWrite(OUT_PIN, OutPin[i]);
+            digitalWrite(REN_PIN, HIGH);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
+            // Set row select enable pin (REN) high
             if (i == 3)
             {
                 uint8_t currentA3 = keyArray[i] & 0b00000001;
@@ -405,22 +424,19 @@ void scanKeysTask(void *pvParameters)
             else if (i == 5)
             {
                 uint8_t currentWestHS = (keyArray[i] & 0b00001000) >> 3;
-                u8g2.setCursor(90, 20);
-                u8g2.print(currentWestHS);
             }
             else if (i == 6)
             {
                 uint8_t currentEastHS = (keyArray[i] & 0b00001000) >> 3;
-                u8g2.setCursor(90, 30);
-                u8g2.print(currentEastHS);
             }
             else
             {
-                u8g2.setCursor(2 + 10 * i, 30);
+                u8g2.setCursor(2 + 10 * i, 20);
                 u8g2.print(keyArray[i], HEX);
             }
-            u8g2.setCursor(80, 20);
-            u8g2.print(deviceID);
+            u8g2.setCursor(50, 30);
+            u8g2.print("position");
+            u8g2.print(position);
 
             xSemaphoreGive(keyArrayMutex);
         }
@@ -433,10 +449,11 @@ void update_display()
     uint8_t RX_Message[8] = {0};
     xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
     u8g2.setCursor(66, 30);
-    u8g2.print((char)RX_Message[0]);
+    u8g2.print(RX_Message[0]);
     u8g2.print(RX_Message[1]);
     u8g2.print(RX_Message[2]);
     u8g2.print(RX_Message[3]);
+    u8g2.print(RX_Message[4]);
     // transfer internal memory to the display
 }
 
@@ -461,8 +478,8 @@ void updateDisplayTask(void *pvParameters)
         xSemaphoreGive(keyArrayMutex);
         currentStepSize = (highestBit < 0) ? 0 : stepSizes[highestBit];
         u8g2.setCursor(2, 10);
+        // update_display();
         u8g2.print(currentStepSize);
-        update_display();
         // u8g2.print(currentStepSize, HEX);
         u8g2.sendBuffer(); // transfer internal memory to the display
 
@@ -489,45 +506,78 @@ bool handshakeRoutine(uint8_t &position)
     bool westMost = false;
     bool eastMost = false;
     bool detect = false;
+    uint8_t RX_Message[8] = {0};
 
     // Set East & West HS output signals
     setRow(5);
     delayMicroseconds(3);
     digitalWrite(OUT_PIN, HIGH);
+    digitalWrite(REN_PIN, HIGH);
+    delayMicroseconds(3);
+
     setRow(6);
     delayMicroseconds(3);
     digitalWrite(OUT_PIN, HIGH);
+    digitalWrite(REN_PIN, HIGH);
+    delayMicroseconds(3);
+
+    delay(1000);
 
     // Get current East & West HS input signals
     setRow(5);
     delayMicroseconds(3);
+    digitalWrite(REN_PIN, HIGH);
     uint8_t westHS = (readCols() & 0b00001000) >> 3;
+    delayMicroseconds(3);
+
     setRow(6);
     delayMicroseconds(3);
+    digitalWrite(REN_PIN, HIGH);
     uint8_t eastHS = (readCols() & 0b00001000) >> 3;
+    delayMicroseconds(3);
+
+    u8g2.clearBuffer(); // clear the internal memory
+
+    u8g2.setFont(u8g2_font_t0_11_tf);
+
+    u8g2.setCursor(20, 20);
+    u8g2.print(eastHS);
+    u8g2.setCursor(40, 20);
+    u8g2.print(westHS);
+
+    u8g2.sendBuffer();
+
+    delay(2000);
 
     // Initial detection
-    if (westHS && eastHS)
-    {
-        // Only Module
-        position = 0;
-        return false;
-    }
-    if (westHS)
+    if (westHS && !eastHS)
     {
         // West-most Module
         westMost = true;
+
+        delay(100);
 
         // Turn East HS signal off
         setRow(6);
         delayMicroseconds(3);
         digitalWrite(OUT_PIN, LOW);
+        digitalWrite(REN_PIN, HIGH);
 
-        // TODO: broadcast CAN signal
+        // Set position
+        position = 0;
+
+        // broadcast CAN signal
+        sendCAN_ModuleInfo(position, deviceID);
 
         // Go to end of function to wait
-        position = 0;
         detect = true;
+    }
+
+    if (westHS && eastHS)
+    {
+        // Only Module
+        position = 10;
+        return false;
     }
     if (eastHS)
     {
@@ -535,25 +585,52 @@ bool handshakeRoutine(uint8_t &position)
         eastMost = true;
     }
 
-    uint8_t eastHS_prev = 0;
     while (!detect)
     {
         setRow(6);
         delayMicroseconds(3);
+        digitalWrite(REN_PIN, HIGH);
         eastHS = (readCols() & 0b00001000) >> 3;
 
-        // TODO:  Recieve and decode CAN signal
+        u8g2.clearBuffer(); // clear the internal memory
 
-        if (eastHS != eastHS_prev)
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print("detecting");
+
+        u8g2.setCursor(80, 20);
+        u8g2.print(eastHS);
+
+        u8g2.setCursor(90, 20);
+        u8g2.print(millis());
+
+        if (eastMost)
         {
-            position = 1 /*CAN position + 1*/;
+            u8g2.setCursor(20, 30);
+            u8g2.print("eastmost");
+        }
+
+        u8g2.sendBuffer();
+
+        if (eastHS != 0)
+        {
+            // Recieve CAN signal
+            uint32_t ID;
+            while (CAN_CheckRXLevel())
+                CAN_RX(ID, RX_Message);
+
+            // Increment position
+            position = RX_Message[0] + 1;
 
             // Turn East HS signal off
             setRow(6);
             delayMicroseconds(3);
             digitalWrite(OUT_PIN, LOW);
+            digitalWrite(REN_PIN, HIGH);
 
             // TODO: broadcast CAN signal
+            sendCAN_ModuleInfo(position, deviceID);
 
             detect = true;
         }
@@ -562,6 +639,7 @@ bool handshakeRoutine(uint8_t &position)
     if (eastMost)
     {
         // TODO:  Send CAN signal to end handshake process
+        sendCAN_HSEnd();
 
         return true;
     }
@@ -569,14 +647,28 @@ bool handshakeRoutine(uint8_t &position)
     bool waitMode = true;
     while (waitMode)
     {
+        u8g2.clearBuffer(); // clear the internal memory
+
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print("waiting");
+
+        u8g2.sendBuffer();
         // TODO: recieve CAN signal from other modules
+        uint32_t ID;
+        while (CAN_CheckRXLevel())
+            CAN_RX(ID, RX_Message);
 
-        if (true /* Recieved another Module ID*/)
+        if (RX_Message[0] != 'E')
         {
-            // TODO: Add to module ID list
+            uint8_t byte1 = RX_Message[1];
+            uint8_t byte2 = RX_Message[2];
+            uint8_t byte3 = RX_Message[3];
+            uint8_t byte4 = RX_Message[4];
+            moduleID.push_back(((uint32_t)byte1 << 24) | ((uint32_t)byte2 << 16) | ((uint32_t)byte3 << 8) | (uint32_t)byte4);
         }
-
-        if (true /* Recieved ending signal*/)
+        else
         {
             return true;
         }
@@ -605,10 +697,10 @@ void canBusInitRoutine()
     CAN_TX_Semaphore = xSemaphoreCreateCounting(3, 3);
 
     // Initialize CAN bus and disable looping
-    uint32_t status = CAN_Init(true);
+    uint32_t status = CAN_Init(false);
 
     // Set filters for CAN signals
-    status = setCANFilter(0x111, 0x7ff); // Send Handshake Device Info
+    status = setCANFilter(ID_MODULE_INFO, 0x7ff); // Send Handshake Device Info
     // status = setCANFilter(0x222, 0x7ff); // End Handshake Sequence
 
     CAN_RegisterRX_ISR(CAN_RX_ISR);
@@ -641,17 +733,22 @@ void setup()
     pinMode(JOYX_PIN, INPUT);
     pinMode(JOYY_PIN, INPUT);
 
-    // Handshake routine
-    deviceID = HAL_GetUIDw0();
-
-    canBusInitRoutine();
-
     // Initialise display
     setOutMuxBit(DRST_BIT, LOW); // Assert display logic reset
     delayMicroseconds(2);
     setOutMuxBit(DRST_BIT, HIGH); // Release display logic reset
     u8g2.begin();
     setOutMuxBit(DEN_BIT, HIGH); // Enable display power supply
+
+    // Get unique ID
+    deviceID = HAL_GetUIDw0();
+
+    // Initialize CAN bus
+    canBusInitRoutine();
+
+    // Perform Handshake Routinue
+    handshakeRoutine(position);
+
     TIM_TypeDef *Instance = TIM1;
     HardwareTimer *sampleTimer = new HardwareTimer(Instance);
     sampleTimer->setOverflow(22000, HERTZ_FORMAT);

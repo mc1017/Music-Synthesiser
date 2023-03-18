@@ -42,12 +42,6 @@ SemaphoreHandle_t minMaxMutex;
 SemaphoreHandle_t rotationMutex;
 SemaphoreHandle_t currentStepSizeMutex;
 
-uint8_t knob0rotation;
-uint8_t knob1rotation;
-uint8_t knob2rotation;
-uint8_t knob3rotation;
-uint8_t previousDelta;
-
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
@@ -139,7 +133,6 @@ void sampleISR()
     const uint32_t stepSizes[] = {
         51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
     };
-    // xSemaphoreTake(currentStepSizeMutex, portMAX_DELAY);
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     // Calculate the output for each active note
@@ -165,7 +158,6 @@ void sampleISR()
         Vout = Vout / activeNotes;
     }
     analogWrite(OUTR_PIN, Vout + 128);
-    // xSemaphoreGive(currentStepSizeMutex);
 }
 
 // ALTERNATE WAVEFORM(Square)
@@ -285,23 +277,19 @@ void scanKeysTask(void *pvParameters)
             {
             case 3:
                 knob[3].updateRotation(currentA3, currentB3);
-                knob3rotation = knob[3].getRotation();
                 u8g2.setCursor(80, 20);
-                u8g2.print(knob3rotation);
+                u8g2.print(knob[3].getRotation());
                 knob[2].updateRotation(currentA2, currentB2);
-                knob2rotation = knob[2].getRotation();
                 u8g2.setCursor(65, 20);
-                u8g2.print(knob2rotation);
+                u8g2.print(knob[2].getRotation());
                 break;
             case 4:
                 knob[1].updateRotation(currentA1, currentB1);
-                knob1rotation = knob[1].getRotation();
                 u8g2.setCursor(50, 20);
-                u8g2.print(knob1rotation);
+                u8g2.print(knob[1].getRotation());
                 knob[0].updateRotation(currentA0, currentB0);
-                knob0rotation = knob[0].getRotation();
                 u8g2.setCursor(35, 20);
-                u8g2.print(knob0rotation);
+                u8g2.print(knob[0].getRotation());
                 break;
             case 5:
 

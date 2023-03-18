@@ -40,6 +40,7 @@ volatile uint8_t keyArray[7];
 SemaphoreHandle_t keyArrayMutex;
 SemaphoreHandle_t minMaxMutex;
 SemaphoreHandle_t rotationMutex;
+SemaphoreHandle_t currentStepSizeMutex;
 
 uint8_t knob0rotation;
 uint8_t knob1rotation;
@@ -130,19 +131,41 @@ private:
     uint8_t rotation;
 };
 
-Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 10)};
+Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
 
 void sampleISR()
 {
-    static uint32_t phaseAcc = 0;
-    phaseAcc += currentStepSize;
-    int32_t Vout = (phaseAcc >> 24) - 128;
-    Vout = Vout >> (10 - knob[3].getRotation());
-    if (knob[3].getRotation() == 0)
+    static uint32_t phaseAcc[12] = {0};
+    const uint32_t stepSizes[] = {
+        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+    };
+    // xSemaphoreTake(currentStepSizeMutex, portMAX_DELAY);
+    uint8_t activeNotes = 0;
+    int32_t Vout = 0;
+    // Calculate the output for each active note
+    for (uint8_t i = 0; i < 3; ++i)
     {
-        Vout = -128;
+        for (uint8_t j = 0; j < 4; ++j)
+        {
+            uint8_t key = ((keyArray[i] >> j) & 1);
+            if (key == 0)
+            {
+                phaseAcc[i * 4 + j] += stepSizes[i * 4 + j];
+                int32_t noteVout = (phaseAcc[i * 4 + j] >> 24) - 128;
+                noteVout = noteVout >> (8 - knob[3].getRotation());
+                Vout += noteVout;
+                ++activeNotes;
+            }
+        }
+    }
+
+    // Avoid Clipping
+    if (activeNotes > 1)
+    {
+        Vout = Vout / activeNotes;
     }
     analogWrite(OUTR_PIN, Vout + 128);
+    // xSemaphoreGive(currentStepSizeMutex);
 }
 
 // ALTERNATE WAVEFORM(Square)
@@ -294,9 +317,6 @@ void scanKeysTask(void *pvParameters)
 void updateDisplayTask(void *pvParameters)
 {
     int highestBit = -1;
-    const uint32_t stepSizes[] = {
-        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
-    };
     const uint32_t notes[] = {};
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -304,13 +324,15 @@ void updateDisplayTask(void *pvParameters)
     {
         u8g2.clearBuffer();                 // clear the internal memory
         u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-
+        const uint32_t stepSizes[] = {
+            51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+        };
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         // Update display
         xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
         highestBit = highest_unset_bit(keyArray);
         xSemaphoreGive(keyArrayMutex);
-        currentStepSize = (highestBit < 0) ? 0 : stepSizes[highestBit];
+        __atomic_store_n(&currentStepSize, (highestBit < 0) ? 0 : stepSizes[highestBit], __ATOMIC_SEQ_CST);
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);
@@ -370,6 +392,7 @@ void setup()
     minMaxMutex = xSemaphoreCreateMutex();
     keyArrayMutex = xSemaphoreCreateMutex();
     rotationMutex = xSemaphoreCreateMutex();
+    currentStepSizeMutex = xSemaphoreCreateMutex();
     TaskHandle_t scanKeysHandle = NULL;
     xTaskCreate(
         scanKeysTask, /* Function that implements the task */

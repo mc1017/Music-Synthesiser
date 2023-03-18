@@ -50,13 +50,13 @@ uint8_t previousDelta;
 volatile uint8_t OutPin[7] = {0, 0, 0, 1, 1, 1, 1};
 
 // Handshake device ID array
-std::vector<uint32_t> moduleID;
+std::vector<uint32_t> moduleID = {};
 
 // Global variable to hold the device's position
 uint8_t position;
 
 // Unique device ID
-uint8_t deviceID;
+uint32_t deviceID;
 
 // CAN queue
 QueueHandle_t msgInQ;
@@ -424,19 +424,33 @@ void scanKeysTask(void *pvParameters)
             else if (i == 5)
             {
                 uint8_t currentWestHS = (keyArray[i] & 0b00001000) >> 3;
+                u8g2.setCursor(80, 20);
+                u8g2.print(currentWestHS);
             }
             else if (i == 6)
             {
                 uint8_t currentEastHS = (keyArray[i] & 0b00001000) >> 3;
+                u8g2.setCursor(90, 20);
+                u8g2.print(currentEastHS);
             }
             else
             {
                 u8g2.setCursor(2 + 10 * i, 20);
                 u8g2.print(keyArray[i], HEX);
             }
+
+            for (size_t i = 0; i < moduleID.size(); i++)
+            {
+                u8g2.setCursor(20 * i, 30);
+                u8g2.print(moduleID[i], HEX);
+            }
+
             u8g2.setCursor(50, 30);
             u8g2.print("position");
             u8g2.print(position);
+
+            // u8g2.setCursor(50, 30);
+            // u8g2.print(deviceID, HEX);
 
             xSemaphoreGive(keyArrayMutex);
         }
@@ -505,49 +519,81 @@ bool handshakeRoutine(uint8_t &position)
 {
     bool westMost = false;
     bool eastMost = false;
+    uint8_t eastHS = 1;
+    uint8_t westHS = 1;
     bool detect = false;
     uint8_t RX_Message[8] = {0};
 
     // Set East & West HS output signals
     setRow(5);
-    delayMicroseconds(3);
-    digitalWrite(OUT_PIN, HIGH);
-    digitalWrite(REN_PIN, HIGH);
-    delayMicroseconds(3);
+    delayMicroseconds(5);
+    digitalWrite(OUT_PIN, 1);
+    digitalWrite(REN_PIN, 1);
+    delayMicroseconds(5);
 
     setRow(6);
-    delayMicroseconds(3);
-    digitalWrite(OUT_PIN, HIGH);
-    digitalWrite(REN_PIN, HIGH);
-    delayMicroseconds(3);
+    delayMicroseconds(5);
+    digitalWrite(OUT_PIN, 1);
+    digitalWrite(REN_PIN, 1);
+    delayMicroseconds(5);
 
-    delay(1000);
+    delay(100);
 
     // Get current East & West HS input signals
     setRow(5);
-    delayMicroseconds(3);
-    digitalWrite(REN_PIN, HIGH);
-    uint8_t westHS = (readCols() & 0b00001000) >> 3;
-    delayMicroseconds(3);
+    delayMicroseconds(5);
+    digitalWrite(REN_PIN, 1);
+    westHS = (readCols() & 0b00001000) >> 3;
+    delayMicroseconds(5);
 
     setRow(6);
-    delayMicroseconds(3);
-    digitalWrite(REN_PIN, HIGH);
-    uint8_t eastHS = (readCols() & 0b00001000) >> 3;
-    delayMicroseconds(3);
+    delayMicroseconds(5);
+    digitalWrite(REN_PIN, 1);
+    eastHS = (readCols() & 0b00001000) >> 3;
+    delayMicroseconds(5);
 
     u8g2.clearBuffer(); // clear the internal memory
 
     u8g2.setFont(u8g2_font_t0_11_tf);
 
     u8g2.setCursor(20, 20);
-    u8g2.print(eastHS);
-    u8g2.setCursor(40, 20);
     u8g2.print(westHS);
+    u8g2.setCursor(40, 20);
+    u8g2.print(eastHS);
 
     u8g2.sendBuffer();
 
-    delay(2000);
+    delay(100);
+
+    if (westHS && eastHS)
+    {
+        delay(100);
+
+        setRow(5);
+        delayMicroseconds(5);
+        digitalWrite(REN_PIN, 1);
+        westHS = (readCols() & 0b00001000) >> 3;
+        delayMicroseconds(5);
+
+        setRow(6);
+        delayMicroseconds(5);
+        digitalWrite(REN_PIN, 1);
+        eastHS = (readCols() & 0b00001000) >> 3;
+        delayMicroseconds(5);
+
+        u8g2.clearBuffer(); // clear the internal memory
+
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print(westHS);
+        u8g2.setCursor(40, 20);
+        u8g2.print(eastHS);
+
+        u8g2.sendBuffer();
+
+        delay(100);
+    }
 
     // Initial detection
     if (westHS && !eastHS)
@@ -555,13 +601,31 @@ bool handshakeRoutine(uint8_t &position)
         // West-most Module
         westMost = true;
 
-        delay(100);
+        delay(500);
 
         // Turn East HS signal off
         setRow(6);
-        delayMicroseconds(3);
-        digitalWrite(OUT_PIN, LOW);
-        digitalWrite(REN_PIN, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(OUT_PIN, 0);
+        digitalWrite(REN_PIN, 1);
+        delayMicroseconds(5);
+
+        setRow(5);
+        delayMicroseconds(5);
+        digitalWrite(OUT_PIN, 0);
+        digitalWrite(REN_PIN, 1);
+        delayMicroseconds(5);
+
+        u8g2.clearBuffer(); // clear the internal memory
+
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print("set low");
+
+        u8g2.sendBuffer();
+
+        delay(200);
 
         // Set position
         position = 0;
@@ -576,9 +640,22 @@ bool handshakeRoutine(uint8_t &position)
     if (westHS && eastHS)
     {
         // Only Module
+        moduleID.push_back(deviceID);
         position = 10;
         return false;
+
+        u8g2.clearBuffer(); // clear the internal memory
+
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print("only");
+
+        u8g2.sendBuffer();
+
+        delay(100);
     }
+
     if (eastHS)
     {
         // East-most Module
@@ -587,10 +664,11 @@ bool handshakeRoutine(uint8_t &position)
 
     while (!detect)
     {
-        setRow(6);
-        delayMicroseconds(3);
-        digitalWrite(REN_PIN, HIGH);
-        eastHS = (readCols() & 0b00001000) >> 3;
+        setRow(5);
+        delayMicroseconds(5);
+        digitalWrite(REN_PIN, 1);
+        delayMicroseconds(5);
+        westHS = (readCols() & 0b00001000) >> 3;
 
         u8g2.clearBuffer(); // clear the internal memory
 
@@ -600,7 +678,7 @@ bool handshakeRoutine(uint8_t &position)
         u8g2.print("detecting");
 
         u8g2.setCursor(80, 20);
-        u8g2.print(eastHS);
+        u8g2.print(westHS);
 
         u8g2.setCursor(90, 20);
         u8g2.print(millis());
@@ -613,7 +691,7 @@ bool handshakeRoutine(uint8_t &position)
 
         u8g2.sendBuffer();
 
-        if (eastHS != 0)
+        if (westHS != 0)
         {
             // Recieve CAN signal
             uint32_t ID;
@@ -623,14 +701,13 @@ bool handshakeRoutine(uint8_t &position)
             // Increment position
             position = RX_Message[0] + 1;
 
+            sendCAN_ModuleInfo(position, deviceID);
+
             // Turn East HS signal off
             setRow(6);
             delayMicroseconds(3);
             digitalWrite(OUT_PIN, LOW);
             digitalWrite(REN_PIN, HIGH);
-
-            // TODO: broadcast CAN signal
-            sendCAN_ModuleInfo(position, deviceID);
 
             detect = true;
         }
@@ -640,6 +717,17 @@ bool handshakeRoutine(uint8_t &position)
     {
         // TODO:  Send CAN signal to end handshake process
         sendCAN_HSEnd();
+
+        u8g2.clearBuffer(); // clear the internal memory
+
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
+        u8g2.setCursor(20, 20);
+        u8g2.print("exiting");
+
+        u8g2.sendBuffer();
+
+        delay(100);
 
         return true;
     }
@@ -660,19 +748,37 @@ bool handshakeRoutine(uint8_t &position)
         while (CAN_CheckRXLevel())
             CAN_RX(ID, RX_Message);
 
-        if (RX_Message[0] != 'E')
+        if (RX_Message[0] != 'E' && ID == ID_MODULE_INFO)
         {
-            uint8_t byte1 = RX_Message[1];
-            uint8_t byte2 = RX_Message[2];
-            uint8_t byte3 = RX_Message[3];
-            uint8_t byte4 = RX_Message[4];
-            moduleID.push_back(((uint32_t)byte1 << 24) | ((uint32_t)byte2 << 16) | ((uint32_t)byte3 << 8) | (uint32_t)byte4);
+            uint32_t moduleID_Recieve = ((uint32_t)RX_Message[1] << 24) | ((uint32_t)RX_Message[2] << 16) | ((uint32_t)RX_Message[3] << 8) | (uint32_t)RX_Message[4];
+            u8g2.clearBuffer(); // clear the internal memory
+
+            u8g2.setFont(u8g2_font_t0_11_tf);
+
+            u8g2.setCursor(20, 20);
+            u8g2.print(moduleID_Recieve);
+
+            u8g2.sendBuffer();
+            delay(3000);
+
+            moduleID.push_back(moduleID_Recieve);
         }
-        else
+        else if (RX_Message[0] == 'E' && ID == ID_MODULE_INFO)
         {
             return true;
         }
     }
+
+    u8g2.clearBuffer(); // clear the internal memory
+
+    u8g2.setFont(u8g2_font_t0_11_tf);
+
+    u8g2.setCursor(20, 20);
+    u8g2.print("erroring");
+
+    u8g2.sendBuffer();
+
+    delay(100);
 
     // Default to return false
     return false;

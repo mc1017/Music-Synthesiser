@@ -149,6 +149,7 @@ void sampleISR()
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     // Calculate the output for each active note
+
     for (uint8_t i = 0; i < 3; ++i)
     {
         for (uint8_t j = 0; j < 4; ++j)
@@ -161,7 +162,10 @@ void sampleISR()
                 noteVout = noteVout >> (8 - knob[3].getRotation());
                 Vout += noteVout;
                 ++activeNotes;
+                
+                // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
             }
+
         }
     }
 
@@ -304,7 +308,8 @@ void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
-
+    
+    uint8_t TX_Message[8] = {0};
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -314,6 +319,9 @@ void scanKeysTask(void *pvParameters)
             delayMicroseconds(3);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
+            TX_Message[i] = keyArray[i];
+            
+
             uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
             uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
             uint8_t currentA1 = keyArray[i] & 0b00000001;
@@ -349,6 +357,7 @@ void scanKeysTask(void *pvParameters)
             }
             xSemaphoreGive(keyArrayMutex);
         }
+        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
     }
 }
 
@@ -377,15 +386,15 @@ void updateDisplayTask(void *pvParameters)
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    uint8_t TX_Message[8] = {0};
-    TX_Message[0] = 7;
-    TX_Message[1] = 6;
-    TX_Message[2] = 4;
-    TX_Message[3] = 8;
-    TX_Message[4] = 9;
-    TX_Message[5] = 9;
-    TX_Message[6] = 9;
-    TX_Message[7] = 9;
+    // uint8_t TX_Message[8] = {0};
+    // TX_Message[0] = 7;
+    // TX_Message[1] = 6;
+    // TX_Message[2] = 4;
+    // TX_Message[3] = 8;
+    // TX_Message[4] = 9;
+    // TX_Message[5] = 9;
+    // TX_Message[6] = 9;
+    // TX_Message[7] = 9;
 
     while (1)
     {
@@ -403,7 +412,9 @@ void updateDisplayTask(void *pvParameters)
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);
-        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+        
+        //xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+        
         update_display();
 
         u8g2.sendBuffer(); // transfer internal memory to the display
@@ -416,9 +427,9 @@ void updateDisplayTask(void *pvParameters)
 // CAN Recieve Task
 void CanComTask(void *pvParameters)
 {
-    uint8_t tmp_RX_Message[8];  
+    uint8_t tmp_RX_Message[8]= {0};  
+    
     while (1) {
-        tmp_RX_Message[8] = {0};
         xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
         xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
         RX_Message[0]=tmp_RX_Message[0];

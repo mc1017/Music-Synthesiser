@@ -308,39 +308,19 @@ void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
+    
+    uint8_t TX_Message[8] = {0};
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
-        
-        uint8_t tmp_RX[8] = {0};
-
-        uint8_t test_array[5] = {0};
-
-
-        xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-        tmp_RX[0]= RX_Message[0];
-        tmp_RX[1]= RX_Message[1];
-        tmp_RX[2]= RX_Message[2];
-        tmp_RX[4]= RX_Message[4];
-        tmp_RX[3]= RX_Message[3];
-        tmp_RX[5]= RX_Message[5];
-        tmp_RX[6]= RX_Message[6];
-        tmp_RX[7]= RX_Message[7];
-        xSemaphoreGive(RX_MessageMutex);
-        //uint8_t TX_Message[8] = {0};
         for (uint8_t i = 0; i < 5; i++)
         {
             setRow(i);
             delayMicroseconds(3);
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
-            if (i<3)
-            {
-                keyArray[i] = keyArray[i]&tmp_RX[i];//~((keyArray[i])&(tmp_RX[i]))<<4;
-            }
-            test_array[i]=keyArray[i];
-            //TX_Message[i] = keyArray[i];
-            //xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+            TX_Message[i] = keyArray[i];
+            
 
             uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
             uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
@@ -377,28 +357,22 @@ void scanKeysTask(void *pvParameters)
             }
             xSemaphoreGive(keyArrayMutex);
         }
-        u8g2.setCursor(60, 10);
-        u8g2.print(test_array[4]);
-        u8g2.print(test_array[3]);
-        u8g2.print(test_array[2]);
-        u8g2.print(test_array[1]);
-        u8g2.print(test_array[0]);
+        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
     }
-    
 }
 
 void update_display()
 {
     uint32_t ID;
     xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-    // u8g2.setCursor(60, 10);
-    // u8g2.print(RX_Message[6]);
-    // u8g2.print(RX_Message[5]);
-    // u8g2.print(RX_Message[4]);
-    // u8g2.print(RX_Message[3]);
-    // u8g2.print(RX_Message[2]);
-    // u8g2.print(RX_Message[1]);
-    // u8g2.print(RX_Message[0]);
+    u8g2.setCursor(60, 10);
+    u8g2.print(RX_Message[6]);
+    u8g2.print(RX_Message[5]);
+    u8g2.print(RX_Message[4]);
+    u8g2.print(RX_Message[3]);
+    u8g2.print(RX_Message[2]);
+    u8g2.print(RX_Message[1]);
+    u8g2.print(RX_Message[0]);
     xSemaphoreGive(RX_MessageMutex);
     //xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
     
@@ -412,7 +386,7 @@ void updateDisplayTask(void *pvParameters)
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    uint8_t TX_Message[8] = {0};
+    // uint8_t TX_Message[8] = {0};
     // TX_Message[0] = 7;
     // TX_Message[1] = 6;
     // TX_Message[2] = 4;
@@ -438,6 +412,8 @@ void updateDisplayTask(void *pvParameters)
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);
+        
+        //xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
         
         update_display();
 
@@ -554,23 +530,23 @@ void setup()
         1,                 /* Task priority */
         &scanKeysHandle);       
 
-    TaskHandle_t CanComHandle = NULL;
-    xTaskCreate(
-        CanComTask, /* Function that implements the task */
-        "CanCom",   /* Text name for the task */
-        200,               /* Stack size in words, not bytes */
-        NULL,              /* Parameter passed into the task */
-        3,                 /* Task priority */
-        &scanKeysHandle);
-
-    // TaskHandle_t CanSendHandle = NULL;
+    // TaskHandle_t CanComHandle = NULL;
     // xTaskCreate(
-    //     CAN_TX_Task, /* Function that implements the task */
-    //     "CAN_TX",   /* Text name for the task */
+    //     CanComTask, /* Function that implements the task */
+    //     "CanCom",   /* Text name for the task */
     //     200,               /* Stack size in words, not bytes */
     //     NULL,              /* Parameter passed into the task */
     //     3,                 /* Task priority */
-    //     &scanKeysHandle);       
+    //     &scanKeysHandle);
+
+    TaskHandle_t CanSendHandle = NULL;
+    xTaskCreate(
+        CAN_TX_Task, /* Function that implements the task */
+        "CAN_TX",   /* Text name for the task */
+        200,               /* Stack size in words, not bytes */
+        NULL,              /* Parameter passed into the task */
+        3,                 /* Task priority */
+        &scanKeysHandle);       
 
 
     vTaskStartScheduler();

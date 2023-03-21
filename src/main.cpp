@@ -36,6 +36,22 @@ const int DRST_BIT = 4;
 const int HKOW_BIT = 5;
 const int HKOE_BIT = 6;
 
+uint8_t octave;
+
+const uint32_t stepSizes0[] = {
+    51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+};
+
+const uint32_t stepSizes1[] = {
+    102152114, 108226394, 114661870, 121480020, 128703598, 136356712, 144464904, 153055234, 162156372, 171798692, 182014374, 192837512 // G# / Ab (1661.22 Hz)
+};
+
+const uint32_t stepSizes2[] = {
+    204304228, 216452788, 229323740, 242960040, 257407196, 272713424, 288929808, 306110468, 324312744, 343597384, 364028748, 385675024 // G# / Ab (3322.44 Hz)
+};
+
+const uint32_t *const stepSizeList[] = {stepSizes0, stepSizes1, stepSizes2};
+
 // Look up current step size
 volatile uint32_t currentStepSize;
 volatile uint8_t keyArray[7];
@@ -159,9 +175,7 @@ Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
 void sampleISR()
 {
     static uint32_t phaseAcc[12] = {0};
-    const uint32_t stepSizes[] = {
-        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
-    };
+    const uint32_t *stepSizes = stepSizeList[octave];
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     // Calculate the output for each active note
@@ -351,6 +365,10 @@ void scanKeysTask(void *pvParameters)
             tmp_RX[5] = RX_Message[5];
             tmp_RX[6] = RX_Message[6];
             tmp_RX[7] = RX_Message[7];
+            if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
+                octave = 0;
+            else
+                octave = RX_Message[5];
             xSemaphoreGive(RX_MessageMutex);
         }
         // uint8_t TX_Message[8] = {0};
@@ -414,12 +432,16 @@ void scanKeysTask(void *pvParameters)
         if (!transmitter && multipleModule)
         {
             u8g2.setCursor(60, 10);
+            u8g2.print(RX_Message[5]);
             u8g2.print(RX_Message[4]);
             u8g2.print(RX_Message[3]);
             u8g2.print(RX_Message[2]);
             u8g2.print(RX_Message[1]);
             u8g2.print(RX_Message[0]);
         }
+
+        u8g2.setCursor(20, 30);
+        u8g2.print(position);
     }
 }
 
@@ -463,9 +485,7 @@ void updateDisplayTask(void *pvParameters)
     {
         u8g2.clearBuffer();                 // clear the internal memory
         u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-        const uint32_t stepSizes[] = {
-            51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
-        };
+        const uint32_t *stepSizes = stepSizeList[octave];
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         // Update display
         xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
@@ -738,13 +758,16 @@ bool handshakeRoutine(uint8_t &position)
             // Increment position
             position = Message[0] + 1;
 
-            sendCAN_ModuleInfo(position, deviceID);
+            delay(500);
 
             // Turn East HS signal off
             setRow(6);
             delayMicroseconds(3);
-            digitalWrite(OUT_PIN, LOW);
-            digitalWrite(REN_PIN, HIGH);
+            digitalWrite(OUT_PIN, 0);
+            digitalWrite(REN_PIN, 1);
+            delayMicroseconds(3);
+
+            sendCAN_ModuleInfo(position, deviceID);
 
             detect = true;
         }
@@ -777,6 +800,11 @@ bool handshakeRoutine(uint8_t &position)
 
         u8g2.setCursor(20, 20);
         u8g2.print("waiting");
+
+        setRow(6);
+        delayMicroseconds(5);
+        u8g2.print(digitalRead(OUT_PIN));
+        digitalWrite(REN_PIN, 1);
 
         u8g2.sendBuffer();
         // TODO: recieve CAN signal from other modules

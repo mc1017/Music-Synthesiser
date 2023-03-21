@@ -407,6 +407,7 @@ void scanKeysTask(void *pvParameters)
             }
             xSemaphoreGive(keyArrayMutex);
         }
+        TX_Message[5] = position;
         if (transmitter && multipleModule)
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
 
@@ -786,6 +787,10 @@ bool handshakeRoutine(uint8_t &position)
         if (Message[0] == 'E' && ID == ID_MODULE_INFO)
         {
             return true;
+        }
+        else
+        {
+            moduleID.push_back(((uint32_t)Message[1] << 24) | ((uint32_t)Message[2] << 16) | ((uint32_t)Message[3] << 8) | (uint32_t)Message[4]);
         }
     }
 

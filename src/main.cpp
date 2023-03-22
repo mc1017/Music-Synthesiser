@@ -357,14 +357,10 @@ void scanKeysTask(void *pvParameters)
         if (!transmitter && multipleModule)
         {
             xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-            tmp_RX[0] = RX_Message[0];
-            tmp_RX[1] = RX_Message[1];
-            tmp_RX[2] = RX_Message[2];
-            tmp_RX[4] = RX_Message[4];
-            tmp_RX[3] = RX_Message[3];
-            tmp_RX[5] = RX_Message[5];
-            tmp_RX[6] = RX_Message[6];
-            tmp_RX[7] = RX_Message[7];
+            for (int i = 0; i < 8; i++)
+            {
+                tmp_RX[i] = RX_Message[i];
+            }
             if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
                 octave = 0;
             else
@@ -514,14 +510,10 @@ void CanComTask(void *pvParameters)
     {
         xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
         xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-        RX_Message[0] = tmp_RX_Message[0];
-        RX_Message[1] = tmp_RX_Message[1];
-        RX_Message[2] = tmp_RX_Message[2];
-        RX_Message[3] = tmp_RX_Message[3];
-        RX_Message[4] = tmp_RX_Message[4];
-        RX_Message[5] = tmp_RX_Message[5];
-        RX_Message[6] = tmp_RX_Message[6];
-        RX_Message[7] = tmp_RX_Message[7];
+        for (int i = 0; i < 8; i++)
+        {
+            RX_Message[i] = tmp_RX_Message[i];
+        }
         xSemaphoreGive(RX_MessageMutex);
     }
 }
@@ -726,20 +718,14 @@ bool handshakeRoutine(uint8_t &position)
         digitalWrite(REN_PIN, 1);
         delayMicroseconds(5);
         westHS = (readCols() & 0b00001000) >> 3;
-
         u8g2.clearBuffer(); // clear the internal memory
-
         u8g2.setFont(u8g2_font_t0_11_tf);
-
         u8g2.setCursor(20, 20);
         u8g2.print("detecting");
-
         u8g2.setCursor(80, 20);
         u8g2.print(westHS);
-
         u8g2.setCursor(90, 20);
         u8g2.print(millis());
-
         if (eastMost)
         {
             u8g2.setCursor(20, 30);
@@ -747,7 +733,6 @@ bool handshakeRoutine(uint8_t &position)
         }
 
         u8g2.sendBuffer();
-
         if (westHS != 0)
         {
             // Recieve CAN signal
@@ -776,18 +761,12 @@ bool handshakeRoutine(uint8_t &position)
     if (eastMost)
     {
         sendCAN_HSEnd();
-
         u8g2.clearBuffer(); // clear the internal memory
-
         u8g2.setFont(u8g2_font_t0_11_tf);
-
         u8g2.setCursor(20, 20);
         u8g2.print("exiting");
-
         u8g2.sendBuffer();
-
         delay(100);
-
         return true;
     }
 
@@ -906,27 +885,25 @@ void setup()
         transmitter = false;
     else
         transmitter = true;
+    TaskHandle_t scanKeysHandle = NULL;
+    xTaskCreate(
+        scanKeysTask, /* Function that implements the task */
+        "scanKeys",   /* Text name for the task */
+        500,          /* Stack size in words, not bytes */
+        NULL,         /* Parameter passed into the task */
+        2,            /* Task priority */
+        &scanKeysHandle);
 
+    TaskHandle_t updateDisplayHandle = NULL;
+    xTaskCreate(
+        updateDisplayTask, /* Function that implements the task */
+        "updateDisplay",   /* Text name for the task */
+        500,               /* Stack size in words, not bytes */
+        NULL,              /* Parameter passed into the task */
+        1,                 /* Task priority */
+        &scanKeysHandle);
     if (multipleModule && transmitter)
     {
-        TaskHandle_t scanKeysHandle = NULL;
-        xTaskCreate(
-            scanKeysTask, /* Function that implements the task */
-            "scanKeys",   /* Text name for the task */
-            500,          /* Stack size in words, not bytes */
-            NULL,         /* Parameter passed into the task */
-            2,            /* Task priority */
-            &scanKeysHandle);
-
-        TaskHandle_t updateDisplayHandle = NULL;
-        xTaskCreate(
-            updateDisplayTask, /* Function that implements the task */
-            "updateDisplay",   /* Text name for the task */
-            500,               /* Stack size in words, not bytes */
-            NULL,              /* Parameter passed into the task */
-            1,                 /* Task priority */
-            &scanKeysHandle);
-
         TaskHandle_t CanSendHandle = NULL;
         xTaskCreate(
             CAN_TX_Task, /* Function that implements the task */
@@ -938,24 +915,6 @@ void setup()
     }
     else if (multipleModule && !transmitter)
     {
-        TaskHandle_t scanKeysHandle = NULL;
-        xTaskCreate(
-            scanKeysTask, /* Function that implements the task */
-            "scanKeys",   /* Text name for the task */
-            500,          /* Stack size in words, not bytes */
-            NULL,         /* Parameter passed into the task */
-            2,            /* Task priority */
-            &scanKeysHandle);
-
-        TaskHandle_t updateDisplayHandle = NULL;
-        xTaskCreate(
-            updateDisplayTask, /* Function that implements the task */
-            "updateDisplay",   /* Text name for the task */
-            500,               /* Stack size in words, not bytes */
-            NULL,              /* Parameter passed into the task */
-            1,                 /* Task priority */
-            &scanKeysHandle);
-
         TaskHandle_t CanComHandle = NULL;
         xTaskCreate(
             CanComTask, /* Function that implements the task */
@@ -965,27 +924,6 @@ void setup()
             3,          /* Task priority */
             &scanKeysHandle);
     }
-    else
-    {
-        TaskHandle_t scanKeysHandle = NULL;
-        xTaskCreate(
-            scanKeysTask, /* Function that implements the task */
-            "scanKeys",   /* Text name for the task */
-            500,          /* Stack size in words, not bytes */
-            NULL,         /* Parameter passed into the task */
-            2,            /* Task priority */
-            &scanKeysHandle);
-
-        TaskHandle_t updateDisplayHandle = NULL;
-        xTaskCreate(
-            updateDisplayTask, /* Function that implements the task */
-            "updateDisplay",   /* Text name for the task */
-            500,               /* Stack size in words, not bytes */
-            NULL,              /* Parameter passed into the task */
-            1,                 /* Task priority */
-            &scanKeysHandle);
-    }
-
     vTaskStartScheduler();
 }
 

@@ -156,7 +156,7 @@ bool handshakeRoutine(uint8_t &position)
     {
         // Only Module
         moduleID.push_back(deviceID);
-        position = 10;
+        position = 0;
         return false;
     }
     else if (westHS && !eastHS)

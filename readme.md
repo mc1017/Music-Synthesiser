@@ -42,33 +42,31 @@ Knob Control Functions Layouts
 
 
 **Feature 1**: Scanning the key matrix to find out which keys are pressed
-    - A keyArray is 
+    - A keyArray containing information on each state of the keyboard is being updated via the `scanKeyTask`
 **Feature 2**: Using an interrupt to generate a sawtooth wave
-    - A dedicated processing module processes the collected data in real-time.
-    - Advanced algorithms are used to detect specific patterns and events.
-3. **Feature 3**: Using threads to allow the key scan and display tasks to be decoupled and executed concurrently 
-    - A graphical user interface (GUI) allows users to interact with the system.
-    - Real-time data visualization helps users to monitor the system status.
-4. **Feature 4**: Use a mutex and queue for thread-safe data sharing
-    - The system sends notifications to users when specific events are detected.
-    - Users can configure the alert thresholds and notification methods.
-5. **Feature 5**: Decode the knobs and implement a volume control
-    - The system sends notifications to users when specific events are detected.
-    - Users can configure the alert thresholds and notification methods.
-6. **Feature 6**: Relay key presses to another keyboard module using the CAN bus
-    - The system sends notifications to users when specific events are detected.
-    - Users can configure the alert thresholds and notification methods.
-7. **Feature 7**: Measure execution time of a task
-    - The system sends notifications to users when specific events are detected.
-    - Users can configure the alert thresholds and notification methods.
+    - `sampleISR` is used to interrupt and sample the `keyArray` at a frequency of 22kHz to generate sound
+**Feature 3**: Using threads to allow the key scan and display tasks to be decoupled and executed concurrently 
+    - `scanKeyTask` and `updateDisplayTask` are implemented as threads to be executed concurrently
+**Feature 4**: Use a mutex and queue for thread-safe data sharing
+    - Mutexes and Queues such as `keyArrayMutex`, `rotationMutex`, and `currentStepSizeMutex` are implemented to eliminate the shared data problem
+**Feature 5**: Decode the knobs and implement a volume control
+    - Knobs are decoded in functions within class `Knob` to obtain the current state and displacement of oreintation
+    - Volume can be controlled with knob 4 (rightmost) 
+**Feature 6**: Relay key presses to another keyboard module using the CAN bus
+    - Handshaking and autodetection is used to identify neighbouring boards
+    - CAN coommunication between keybaords are implemented so that sound can be transmitted from transmitter to receiver
+**Feature 7**: Measure execution time of a task
+    - Each task's latency is measured separated and obtained
+    - Execution time is analysed and obtained critical instant and CPU utilisation
 
 ### Advanced Features
 
 1. **Hand Shaking**: Using handshake to inform the board of whether there are multiple boards, whether it is a transmitter or reciever, and what position it is at among multiple connected keyboards at start-up. 
 2. **Multiple Waveforms**: The synthesizer is able to produce the following waveforms: Sawtooth waves, Square waves, Triangle waves, Sine waves. 
-3. **LFO**: ?
+3. **LFO**: The two variables `currentPitchLFOStepSize` and `currentVolLFOStepSize` control the frequency of the LFOs. They are incremented to the phase accumulators of their respective LFOs for pitch and volume automation so that they can have separate frequencies independent of each other. The LFO’s waveforms for both pitch and volume automation are triangle waves.
+
 4. **Drum Sound Effects**: With a toggle, the synthesizer is able to play multiple different sound effects. 
-5. **Display**: The display is capacble of showing the following information: 
+5. **Display**: The display is capable of showing the following information: 
    - Module position among multiple connected keyboards. (Top-right corner)
    - Module role as either transmitter, reciever, or lone module. (Top-right corner)
    - Current Key being pressed (including other keyboards on the reciever keyboard)
@@ -77,29 +75,28 @@ Knob Control Functions Layouts
    - Current mode for other advanced features 
    - Current playing volume 
 6. **CAN Communication**: Transmitter keyboards will send key array information to the reciever borad, along with it's position among multiple connected keyboards. The reciever board will play the note according the the recieved information. (With connectoin up to 2 keyboards)
+7. **Polyphony** : The 
 
 ## Code Structure
 
 The project follows a modular code structure, organized as follows:
-`main.cpp`: The main entry point of the program, responsible for initializing and running the system. The `main.cpp` is responsible for the following: 
-- Imports Relevant Libraries
-- CAN Bus Communitcation: 
+`main.cpp`: The main entry point of the program, responsible for initializing and running the system. 
+
+All scheduling related tasks are implemented in `main.cpp`: 
+- Initialisation of ISRs, CAN Bus Communitcation, and Handshakes: 
   - Performs initialization that sets filters, registers CAN Bus related ISRs, etc. 
-- Handshake: 
-  - Performs Handshake routine and assign transmitter / reciever roles on set-up. 
-  - Assigns position values that are stored locally on each board. 
 - Data Sharing: 
   - Creates Mutexes and Saraphones for variables such as the `keyArrayMutex`, `RX_MessageMutex` for safe data sharing between tasks. 
-- Starts RTOS: 
-  - Initializes and runs appropreate threads according to their configuration (Only module, transmitter, or reciever). 
-  - Starts the RTOS scheduler. 
 - RTOS Tasks: 
   - Scans Key matrix and updates variables for displaying / playing sound. 
   - Displays relevant information that is provided by the ScanKeys task. 
   - Plays notes according to the information provided by the ScanKeys task. 
   - Sends information provided by the ScanKeys task or recieves information from the other boards depending on their configuration. 
+- Starts RTOS: 
+  - Initializes and runs appropreate threads according to their configuration (Only module, transmitter, or reciever). 
+  - Starts the RTOS scheduler. 
 
-All feature-specific code are included in [Libraries](#libraries). 
+All feature-specific code are included as [Libraries](#libraries). 
 
 
 ### Libraries 
@@ -237,19 +234,29 @@ Since the total execution time is 81.2314 ms for a period of 100ms, based on the
 The code deploys mutexes and semaphores to guarantee safe access and synchronisation between tasks. 
 
 These are the descriptions of Mutexes and Semaphores used: 
-- `keyArrayMutex`: Mutex and Semaphore that protects the state of the matrix keypad.
-- `minMaxMutex`: Mutex and Semaphore that protects the minimum and maximum values of the waveform output.
-- `rotationMutex`: Mutex and Semaphore that protects the variable that controls the output voltage, using the rotation of a knob.
-- `currentStepSizeMutex`: Mutex and Semaphore that protects the variable that sets the step size for sampling the waveform output. 
-- `RX_MessageMutex`: Mutex and Semaphore that protects the CAN RX message queue used for receiving messages over the CAN bus.
-- `CAN_TXSemaphore`: Semaphore that protects the CAN TX queue, allowing only one task to transmit data over the CAN bus at once.
+- `keyArrayMutex`: protects the `keyArray` which stores the state of the matrix keypad.
+- `minMaxMutex`: protects the initialisation of knobs minimum and maximum values.
+- `rotationMutex`: protects the variable that controls the output voltage, using the rotation of a knob.
+- `currentStepSizeMutex`: protects the variable that sets the step size for sampling the waveform output. 
+- `RX_MessageMutex`: protects the CAN RX message queue used for receiving messages over the CAN bus.
+- `CAN_TXSemaphore`: protects the CAN TX queue, allowing only one task to transmit data over the CAN bus at once.
 
 ### Intertask Blocking Dependencies and Deadlock Analysis 
-An analysis of inter-task blocking dependencies was conducted to identify any possibility of deadlock. The system uses the following resources:
 
-Resource 1: Description of Resource 1
-Resource 2: Description of Resource 2
-The tasks follow a strict order when acquiring and releasing resources, which prevents circular wait and eliminates the possibility of deadlock.
+An analysis of inter-task blocking dependencies was conducted to identify any possibility of deadlock.
+
+A deadlock occurs when two or more tasks are unable to proceed because they are each waiting for the other to release a resource. Four necessary conditions must hold simultaneously for a deadlock to occur:
+
+1. Mutual Exclusion: At least one resource must be held in a non-shareable mode, meaning only one task can use the resource at a time.
+2. Hold and Wait: A task must be holding at least one resource and waiting for additional resources that are currently held by other tasks.
+3. No Preemption: Resources cannot be forcibly removed from a task once they have been allocated; the task must release the resource voluntarily.
+4. Circular Wait: A circular chain of tasks exists, where each task is waiting for a resource held by the next task in the chain.
+
+`keyArrayMutex`, `rotationMutex`, and `currentStepSizeMutex` are mutexes used to protect variables from the shared data problem. The other mutexes are to prevent interrupt from obtaining an intermediate values. 
+
+It is possible for any tasks that take any of the above mutexes to block other tasks that rely on the same mutex. Thus creating a dependancies between these tasks. For example, `scanKeyTask` and `updateDisplayTask` both require the use of `keyArray`, thus creating dependancies between them. 
+
+There is no situation where Hold and Wait and Circular Wait occurs simutaneously as there is no task that wait for a resource held by next task in the chain. Thus, there is no possibility of a deadlock from 
 
 
 

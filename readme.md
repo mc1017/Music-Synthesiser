@@ -62,7 +62,7 @@ Knob Control Functions Layouts
 ### Advanced Features
 
 1. **Hand Shaking**: Using handshake to inform the board of whether there are multiple boards, whether it is a transmitter or reciever, and what position it is at among multiple connected keyboards at start-up. 
-2. **Multiple Waveforms**: The synthesizer is able to produce the following waveforms: Sawtooth waves, Square waves, Triangle waves, Sine waves. 
+2. **Multiple Waveforms**: There are four types of waveforms implemented for the main oscillator of the synthesizer; sine, sawtooth, triangle, and square waves. The implementation of the phase accumulator is the same for all four waves. The phase accumulator, array variable `phaseAcc[12]`, takes some value from 0 to INT32, above which it overflows and loops back to 0.
 3. **LFO**: The two variables `currentPitchLFOStepSize` and `currentVolLFOStepSize` control the frequency of the LFOs. They are incremented to the phase accumulators of their respective LFOs for pitch and volume automation so that they can have separate frequencies independent of each other. The LFO’s waveforms for both pitch and volume automation are triangle waves.
 
 4. **Drum Sound Effects**: With a toggle, the synthesizer is able to play multiple different sound effects. 
@@ -74,8 +74,8 @@ Knob Control Functions Layouts
    - Current playing octave number 
    - Current mode for other advanced features 
    - Current playing volume 
-6. **CAN Communication**: Transmitter keyboards will send key array information to the reciever borad, along with it's position among multiple connected keyboards. The reciever board will play the note according the the recieved information. (With connectoin up to 2 keyboards)
-7. **Polyphony** : The 
+6. **CAN Communication**: Transmitter keyboards will send key array information to the reciever borad, along with it's position among multiple connected keyboards. The reciever board will play the note according the the recieved information. (With connectoin up to 2 keyboards!) The CAN message is in the following format: Byte 0-3: the keyArray of the keyboard. if no key is pressed, the code will show 0xf for all bytes. Byte 5 is set as position variable which store the position of the keyboard in the handshake. It is used to determine which octave it is in for the key.
+7. **Polyphony** : The keyboard is capable of playing all 12 keys simutaneuously (possibly more with connected keyboards). This is done by scanning through all 12 keys during the interrupt, and incrementing all keys based on its step size. The Vout is then divided by the number of active keys to avoid clipping.
 
 ## Code Structure
 

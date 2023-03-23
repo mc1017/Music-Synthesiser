@@ -5,6 +5,7 @@
 #include <Keyboard.h>
 #include <ES_CAN.h>
 #include <vector>
+#include <Display.h>
 
 extern std::vector<uint32_t> moduleID;
 

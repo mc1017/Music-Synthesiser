@@ -5,6 +5,7 @@
 #include <Keyboard.h>
 #include <CAN_HandShake.h>
 #include <Waveform.h>
+#include <Display.h>
 #include <vector>
 
 SemaphoreHandle_t keyArrayMutex;
@@ -242,6 +243,9 @@ void scanKeysTask(void *pvParameters)
             xSemaphoreGive(keyArrayMutex);
         }
         TX_Message[5] = position;
+
+        displayKeys(keyArray[0], keyArray[1], keyArray[2]);
+
         if (transmitter && multipleModule)
         {
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
@@ -301,8 +305,8 @@ void updateDisplayTask(void *pvParameters)
 
     while (1)
     {
-        u8g2.clearBuffer();                 // clear the internal memory
-        u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+        u8g2.clearBuffer();               // clear the internal memory
+        u8g2.setFont(u8g2_font_t0_11_tf); // choose a suitable font
         const uint32_t *stepSizes = stepSizeList[octave];
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         // Update display
@@ -310,8 +314,6 @@ void updateDisplayTask(void *pvParameters)
         highestBit = highest_unset_bit(keyArray);
         xSemaphoreGive(keyArrayMutex);
         __atomic_store_n(&currentStepSize, (highestBit < 0) ? 0 : stepSizes[highestBit], __ATOMIC_SEQ_CST);
-        u8g2.setCursor(2, 10);
-        u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);
         // if (!transmitter && multipleModule)
         //     update_display();

@@ -4,6 +4,7 @@
 #include <ES_CAN.h>
 #include <CAN_HandShake.h>
 #include <vector>
+#include <Display.h>
 
 // Handshake device ID array
 std::vector<uint32_t> moduleID = {};
@@ -101,7 +102,6 @@ bool waitMode(uint8_t Message[])
     return false;
 }
 
-
 bool handshakeRoutine(uint8_t &position)
 {
     bool westMost = false;
@@ -111,6 +111,10 @@ bool handshakeRoutine(uint8_t &position)
     bool detect = false;
     uint8_t Message[8] = {0};
     deviceID = HAL_GetUIDw0();
+
+    // Display loading screen
+
+    displayHandshake();
 
     // Set East & West HS output signals
     setRow(5);
@@ -148,7 +152,7 @@ bool handshakeRoutine(uint8_t &position)
             break;
         }
 
-        debugPrintEastWest(eastHS, westHS);
+        // debugPrintEastWest(eastHS, westHS);
         delay(100);
     }
 

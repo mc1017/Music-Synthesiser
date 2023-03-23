@@ -97,7 +97,9 @@ private:
 };
 
 Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
-
+void waveforms(Knob)
+{
+}
 void sampleISR()
 {
     static uint32_t phaseAcc[12] = {0};
@@ -175,6 +177,35 @@ void CAN_RX_ISR(void)
 void CAN_TX_ISR(void)
 {
     xSemaphoreGiveFromISR(CAN_TXSemaphore, NULL);
+}
+
+// CAN Recieve Task
+void Can_RX_Task(void *pvParameters)
+{
+    uint8_t tmp_RX_Message[8] = {0};
+
+    while (1)
+    {
+        xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
+        xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
+        for (int i = 0; i < 8; i++)
+        {
+            RX_Message[i] = tmp_RX_Message[i];
+        }
+        xSemaphoreGive(RX_MessageMutex);
+    }
+}
+
+// CAN send Task
+void CAN_TX_Task(void *pvParameters)
+{
+    uint8_t msgOut[8];
+    while (1)
+    {
+        xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+        xSemaphoreTake(CAN_TXSemaphore, portMAX_DELAY);
+        CAN_TX(0x111, msgOut);
+    }
 }
 
 void canBusInitRoutine()
@@ -357,35 +388,6 @@ void updateDisplayTask(void *pvParameters)
     }
 }
 
-// CAN Recieve Task
-void CanComTask(void *pvParameters)
-{
-    uint8_t tmp_RX_Message[8] = {0};
-
-    while (1)
-    {
-        xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
-        xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-        for (int i = 0; i < 8; i++)
-        {
-            RX_Message[i] = tmp_RX_Message[i];
-        }
-        xSemaphoreGive(RX_MessageMutex);
-    }
-}
-
-// CAN send Task
-void CAN_TX_Task(void *pvParameters)
-{
-    uint8_t msgOut[8];
-    while (1)
-    {
-        xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
-        xSemaphoreTake(CAN_TXSemaphore, portMAX_DELAY);
-        CAN_TX(0x111, msgOut);
-    }
-}
-
 void setup()
 {
     // put your setup code here, to run once:
@@ -457,7 +459,7 @@ void setup()
         500,               /* Stack size in words, not bytes */
         NULL,              /* Parameter passed into the task */
         1,                 /* Task priority */
-        &scanKeysHandle);
+        &updateDisplayHandle);
     if (multipleModule && transmitter)
     {
         TaskHandle_t CanSendHandle = NULL;
@@ -467,18 +469,18 @@ void setup()
             200,         /* Stack size in words, not bytes */
             NULL,        /* Parameter passed into the task */
             3,           /* Task priority */
-            &scanKeysHandle);
+            &CanSendHandle);
     }
     else if (multipleModule && !transmitter)
     {
-        TaskHandle_t CanComHandle = NULL;
+        TaskHandle_t CanReceiveHandle = NULL;
         xTaskCreate(
-            CanComTask, /* Function that implements the task */
-            "CanCom",   /* Text name for the task */
-            200,        /* Stack size in words, not bytes */
-            NULL,       /* Parameter passed into the task */
-            3,          /* Task priority */
-            &scanKeysHandle);
+            Can_RX_Task, /* Function that implements the task */
+            "Can_RX",    /* Text name for the task */
+            200,         /* Stack size in words, not bytes */
+            NULL,        /* Parameter passed into the task */
+            3,           /* Task priority */
+            &CanReceiveHandle);
     }
     vTaskStartScheduler();
 }

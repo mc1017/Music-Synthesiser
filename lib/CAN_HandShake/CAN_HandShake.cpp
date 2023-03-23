@@ -11,6 +11,7 @@ std::vector<uint32_t> moduleID = {};
 // Global variable to hold the device's position
 uint8_t position;
 uint32_t deviceID;
+uint32_t deviceIDs[3];
 
 // Transmitter / Reciever setting
 bool transmitter = false;
@@ -47,221 +48,34 @@ void sendCAN_ModuleInfo(uint8_t position, uint32_t ID)
     CAN_TX(ID_MODULE_INFO, TX_Message);
 }
 
-bool handshakeRoutine(uint8_t &position)
+void debugPrintEastWest(uint8_t eastHS, uint8_t westHS)
 {
-    bool westMost = false;
-    bool eastMost = false;
-    uint8_t eastHS = 1;
-    uint8_t westHS = 1;
-    bool detect = false;
-    uint8_t Message[8] = {0};
-
-    // Set East & West HS output signals
-    setRow(5);
-    delayMicroseconds(5);
-    digitalWrite(OUT_PIN, 1);
-    digitalWrite(REN_PIN, 1);
-    delayMicroseconds(5);
-
-    setRow(6);
-    delayMicroseconds(5);
-    digitalWrite(OUT_PIN, 1);
-    digitalWrite(REN_PIN, 1);
-    delayMicroseconds(5);
-
-    delay(100);
-
-    // Get current East & West HS input signals
-    setRow(5);
-    delayMicroseconds(5);
-    digitalWrite(REN_PIN, 1);
-    westHS = (readCols() & 0b00001000) >> 3;
-    delayMicroseconds(5);
-
-    setRow(6);
-    delayMicroseconds(5);
-    digitalWrite(REN_PIN, 1);
-    eastHS = (readCols() & 0b00001000) >> 3;
-    delayMicroseconds(5);
 
     u8g2.clearBuffer(); // clear the internal memory
-
     u8g2.setFont(u8g2_font_t0_11_tf);
-
     u8g2.setCursor(20, 20);
     u8g2.print(westHS);
     u8g2.setCursor(40, 20);
     u8g2.print(eastHS);
-
     u8g2.sendBuffer();
+}
 
-    delay(100);
+void debugPrintStatement(char *statement)
+{
 
-    if (westHS && eastHS)
+    u8g2.clearBuffer(); // clear the internal memory
+    u8g2.setFont(u8g2_font_t0_11_tf);
+    u8g2.setCursor(20, 20);
+    u8g2.print(statement);
+    u8g2.sendBuffer();
+}
+
+bool waitMode(uint8_t Message[])
+{
+    while (true)
     {
-        delay(100);
 
-        setRow(5);
-        delayMicroseconds(5);
-        digitalWrite(REN_PIN, 1);
-        westHS = (readCols() & 0b00001000) >> 3;
-        delayMicroseconds(5);
-
-        setRow(6);
-        delayMicroseconds(5);
-        digitalWrite(REN_PIN, 1);
-        eastHS = (readCols() & 0b00001000) >> 3;
-        delayMicroseconds(5);
-
-        u8g2.clearBuffer(); // clear the internal memory
-
-        u8g2.setFont(u8g2_font_t0_11_tf);
-
-        u8g2.setCursor(20, 20);
-        u8g2.print(westHS);
-        u8g2.setCursor(40, 20);
-        u8g2.print(eastHS);
-
-        u8g2.sendBuffer();
-
-        delay(100);
-    }
-
-    // Initial detection
-    if (westHS && !eastHS)
-    {
-        // West-most Module
-        westMost = true;
-
-        delay(500);
-
-        // Turn East HS signal off
-        setRow(6);
-        delayMicroseconds(5);
-        digitalWrite(OUT_PIN, 0);
-        digitalWrite(REN_PIN, 1);
-        delayMicroseconds(5);
-
-        setRow(5);
-        delayMicroseconds(5);
-        digitalWrite(OUT_PIN, 0);
-        digitalWrite(REN_PIN, 1);
-        delayMicroseconds(5);
-
-        u8g2.clearBuffer(); // clear the internal memory
-
-        u8g2.setFont(u8g2_font_t0_11_tf);
-
-        u8g2.setCursor(20, 20);
-        u8g2.print("set low");
-
-        u8g2.sendBuffer();
-
-        delay(200);
-
-        // Set position
-        position = 0;
-
-        // broadcast CAN signal
-        sendCAN_ModuleInfo(position, deviceID);
-
-        // Go to end of function to wait
-        detect = true;
-    }
-
-    if (westHS && eastHS)
-    {
-        // Only Module
-        moduleID.push_back(deviceID);
-        position = 10;
-        return false;
-
-        u8g2.clearBuffer(); // clear the internal memory
-
-        u8g2.setFont(u8g2_font_t0_11_tf);
-
-        u8g2.setCursor(20, 20);
-        u8g2.print("only");
-
-        u8g2.sendBuffer();
-
-        delay(100);
-    }
-
-    if (eastHS)
-    {
-        // East-most Module
-        eastMost = true;
-    }
-
-    while (!detect)
-    {
-        setRow(5);
-        delayMicroseconds(5);
-        digitalWrite(REN_PIN, 1);
-        delayMicroseconds(5);
-        westHS = (readCols() & 0b00001000) >> 3;
-        u8g2.clearBuffer(); // clear the internal memory
-        u8g2.setFont(u8g2_font_t0_11_tf);
-        u8g2.setCursor(20, 20);
-        u8g2.print("detecting");
-        u8g2.setCursor(80, 20);
-        u8g2.print(westHS);
-        u8g2.setCursor(90, 20);
-        u8g2.print(millis());
-        if (eastMost)
-        {
-            u8g2.setCursor(20, 30);
-            u8g2.print("eastmost");
-        }
-
-        u8g2.sendBuffer();
-        if (westHS != 0)
-        {
-            // Recieve CAN signal
-            uint32_t ID;
-            while (CAN_CheckRXLevel())
-                CAN_RX(ID, Message);
-
-            // Increment position
-            position = Message[0] + 1;
-
-            delay(500);
-
-            // Turn East HS signal off
-            setRow(6);
-            delayMicroseconds(3);
-            digitalWrite(OUT_PIN, 0);
-            digitalWrite(REN_PIN, 1);
-            delayMicroseconds(3);
-
-            sendCAN_ModuleInfo(position, deviceID);
-
-            detect = true;
-        }
-    }
-
-    if (eastMost)
-    {
-        sendCAN_HSEnd();
-        u8g2.clearBuffer(); // clear the internal memory
-        u8g2.setFont(u8g2_font_t0_11_tf);
-        u8g2.setCursor(20, 20);
-        u8g2.print("exiting");
-        u8g2.sendBuffer();
-        delay(100);
-        return true;
-    }
-
-    bool waitMode = true;
-    while (waitMode)
-    {
-        u8g2.clearBuffer(); // clear the internal memory
-
-        u8g2.setFont(u8g2_font_t0_11_tf);
-
-        u8g2.setCursor(20, 20);
-        u8g2.print("waiting");
+        debugPrintStatement("Waiting");
 
         setRow(6);
         delayMicroseconds(5);
@@ -282,19 +96,135 @@ bool handshakeRoutine(uint8_t &position)
         {
             moduleID.push_back(((uint32_t)Message[1] << 24) | ((uint32_t)Message[2] << 16) | ((uint32_t)Message[3] << 8) | (uint32_t)Message[4]);
         }
+        delay(100);
     }
+    debugPrintStatement("Erroring");
+    return false;
+}
 
-    u8g2.clearBuffer(); // clear the internal memory
+void getDeviceIDs()
+{
+    deviceIDs[0] = HAL_GetUIDw0();
+    deviceIDs[1] = HAL_GetUIDw1();
+    deviceIDs[2] = HAL_GetUIDw2();
+}
 
-    u8g2.setFont(u8g2_font_t0_11_tf);
+bool handshakeRoutine(uint8_t &position)
+{
+    bool westMost = false;
+    bool eastMost = false;
+    uint8_t eastHS = 1;
+    uint8_t westHS = 1;
+    bool detect = false;
+    uint8_t Message[8] = {0};
+    getDeviceIDs();
 
-    u8g2.setCursor(20, 20);
-    u8g2.print("erroring");
+    // Set East & West HS output signals
+    setRow(5);
+    delayMicroseconds(5);
+    digitalWrite(OUT_PIN, 1);
+    digitalWrite(REN_PIN, 1);
+    delayMicroseconds(5);
 
-    u8g2.sendBuffer();
+    setRow(6);
+    delayMicroseconds(5);
+    digitalWrite(OUT_PIN, 1);
+    digitalWrite(REN_PIN, 1);
+    delayMicroseconds(5);
 
     delay(100);
 
+    // Get current East & West HS input signals
+    int max_tries = 5;
+    for (int i = 0; i < max_tries; i++)
+    {
+        if (westHS)
+        {
+            setRow(5);
+            westHS = (readCols() & 0b00001000) >> 3;
+            delayMicroseconds(5);
+        }
+        if (eastHS)
+        {
+            setRow(6);
+            eastHS = (readCols() & 0b00001000) >> 3;
+            delayMicroseconds(5);
+        }
+        if (!westHS && !eastHS)
+        {
+            break;
+        }
+
+        debugPrintEastWest(eastHS, westHS);
+        delay(100);
+    }
+
+    if (westHS && eastHS)
+    {
+        // Only Module
+        moduleID.push_back(deviceID);
+        position = 10;
+        return false;
+    }
+    else if (westHS && !eastHS)
+    {
+        // West-most Module
+        westMost = true;
+
+        // Turn East HS signal off
+        setRow(5);
+        delayMicroseconds(5);
+        digitalWrite(OUT_PIN, 0);
+        setRow(6);
+        delayMicroseconds(5);
+        digitalWrite(OUT_PIN, 0);
+
+        digitalWrite(REN_PIN, 1);
+        delayMicroseconds(5);
+        debugPrintStatement("set low");
+        // Set position
+        position = 0;
+
+        // broadcast CAN signal
+        sendCAN_ModuleInfo(position, deviceIDs[position]);
+    }
+    else
+    {
+        if (!westHS && eastHS)
+        {
+            eastMost = true;
+        }
+        while (!westHS)
+        {
+            setRow(5);
+            delayMicroseconds(5);
+            digitalWrite(REN_PIN, 1);
+            delayMicroseconds(5);
+            westHS = (readCols() & 0b00001000) >> 3;
+        }
+        // Recieve CAN signal
+        uint32_t ID;
+        while (CAN_CheckRXLevel())
+            CAN_RX(ID, Message);
+
+        // Increment position
+        position = Message[0] + 1;
+
+        delay(100);
+
+        // Turn East HS signal off
+        setRow(6);
+        delayMicroseconds(3);
+        digitalWrite(OUT_PIN, 0);
+        digitalWrite(REN_PIN, 1);
+        delayMicroseconds(3);
+
+        sendCAN_ModuleInfo(position, deviceIDs[position]);
+    }
+    if (eastMost)
+    {
+        sendCAN_HSEnd();
+    }
     // Default to return false
-    return false;
+    return waitMode(Message);
 }

@@ -106,6 +106,7 @@ uint8_t readCols()
     return (C3 << 3) | (C2 << 2) | (C1 << 1) | C0;
 }
 
+
 int highest_unset_bit(volatile uint8_t array[])
 {
     uint16_t merged = ((uint16_t)array[2] & 0x0F) << 8 |

@@ -10,6 +10,7 @@ extern std::vector<uint32_t> moduleID;
 
 // Handshake out signals (default to high on startup)
 extern volatile uint8_t OutPin[7];
+extern uint32_t deviceIDs[3];
 
 // Transmitter / Reciever setting
 extern bool transmitter;

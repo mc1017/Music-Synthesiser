@@ -1,7 +1,6 @@
 #ifndef KEYBOARD_INTERFACE_H
 #define KEYBOARD_INTERFACE_H
 #include <Arduino.h>
-#include <U8g2lib.h>
 
 // Pin definitions
 // Row select and enable
@@ -33,10 +32,12 @@ extern const int HKOE_BIT;
 
 // Constants
 extern const uint32_t interval;        // Display update interval
-extern const std::uint32_t MAX_UINT32; // max value -1 of uint32_t
 
 extern volatile uint32_t currentStepSize;
 extern volatile uint8_t keyArray[7];
+extern volatile uint8_t keyArray2[7];
+extern volatile uint8_t keyArray3[7];
+
 extern uint8_t octave;
 
 extern const uint32_t stepSizes0[];
@@ -47,8 +48,24 @@ extern const uint32_t stepSizes2[];
 
 extern const uint32_t *const stepSizeList[];
 
-// Display driver object
-extern U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2;
+class Knob
+{
+public:
+    Knob();
+    Knob(uint8_t minValue, uint8_t maxValue);
+    void setLimits(uint8_t minValue, uint8_t maxValue);
+    uint8_t getRotation() const;
+    void updateRotation(uint8_t currentA, uint8_t currentB);
+
+private:
+    uint8_t prevA;
+    uint8_t prevB;
+    uint8_t minValue;
+    uint8_t maxValue;
+    uint8_t rotation;
+};
+
+extern Knob knob[4];
 
 void setOutMuxBit(const uint8_t bitIdx, const bool value);
 

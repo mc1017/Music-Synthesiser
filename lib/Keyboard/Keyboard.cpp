@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <U8g2lib.h>
 #include <Keyboard.h>
 // Pin definitions
 // Row select and enable
@@ -30,28 +29,61 @@ const int HKOW_BIT = 5;
 const int HKOE_BIT = 6;
 
 // Constants
-const uint32_t interval = 100;               // Display update interval
-const std::uint32_t MAX_UINT32 = 4294967295; // max value -1 of uint32_t
-volatile uint32_t currentStepSize;
+const uint32_t interval = 100; // Display update interval
 volatile uint8_t keyArray[7];
-uint8_t octave;
+volatile uint8_t keyArray2[7] = {15, 15, 15, 15, 15, 15, 15};
+volatile uint8_t keyArray3[7] = {15, 15, 15, 15, 15, 15, 15};
 
-const uint32_t stepSizes0[] = {
-    51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
-};
+Knob::Knob() {}
 
-const uint32_t stepSizes1[] = {
-    102152114, 108226394, 114661870, 121480020, 128703598, 136356712, 144464904, 153055234, 162156372, 171798692, 182014374, 192837512 // G# / Ab (1661.22 Hz)
-};
+Knob::Knob(uint8_t minValue, uint8_t maxValue)
+    : minValue(minValue), maxValue(maxValue), rotation(0), prevA(0), prevB(0) {}
 
-const uint32_t stepSizes2[] = {
-    204304228, 216452788, 229323740, 242960040, 257407196, 272713424, 288929808, 306110468, 324312744, 343597384, 364028748, 385675024 // G# / Ab (3322.44 Hz)
-};
+void Knob::setLimits(uint8_t minValue, uint8_t maxValue)
+{
+    this->minValue = minValue;
+    this->maxValue = maxValue;
+}
 
-const uint32_t *const stepSizeList[] = {stepSizes0, stepSizes1, stepSizes2};
+uint8_t Knob::getRotation() const
+{
+    return rotation;
+}
 
-// Display driver object
-U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
+void Knob::updateRotation(uint8_t currentA, uint8_t currentB)
+{
+
+    int delta = 0;
+    if (prevA == 1 && prevB == 1 && currentA == 0 && currentB == 1)
+    {
+        delta = 1;
+    }
+    else if (prevA == 1 && prevB == 0 && currentB == 0 && currentA == 0)
+    {
+        delta = -1;
+    }
+    else if (prevA == 0 && prevB == 0 && currentA == 1 && currentB == 0)
+    {
+        delta = 1;
+    }
+    else if (prevA == 0 && prevB == 1 && currentB == 1 && currentA == 1)
+    {
+        delta = -1;
+    }
+
+    uint8_t tempRotation = rotation + delta;
+
+    // Check that the new rotation value is within permitted bounds
+    if (tempRotation >= minValue && tempRotation <= maxValue)
+    {
+        __atomic_store_n(&rotation, tempRotation, __ATOMIC_RELAXED);
+    }
+    // Store current state as previous state
+    prevA = currentA;
+    prevB = currentB;
+}
+
+Knob knob[4] = {Knob(0, 4), Knob(0, 3), Knob(0, 1), Knob(0, 8)};
 
 // Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value)
@@ -105,7 +137,6 @@ uint8_t readCols()
     // Concatenate the four bits into a single byte and return
     return (C3 << 3) | (C2 << 2) | (C1 << 1) | C0;
 }
-
 
 int highest_unset_bit(volatile uint8_t array[])
 {

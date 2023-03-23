@@ -1,9 +1,8 @@
 #include <Arduino.h>
-#include <U8g2lib.h>
-#include <Keyboard.h>
 #include <ES_CAN.h>
-#include <CAN_HandShake.h>
 #include <vector>
+#include <Display.h>
+#include <CAN_HandShake.h>
 
 // Handshake device ID array
 std::vector<uint32_t> moduleID = {};
@@ -20,9 +19,10 @@ bool multipleModule = false;
 volatile uint8_t OutPin[7] = {0, 0, 0, 1, 1, 1, 1};
 
 // CAN Headers
-const uint32_t ID_MODULE_INFO = 0x111;
+const uint32_t CAN_ID = 0x111;
 
 uint8_t RX_Message[8];
+uint8_t RX_Message2[8];
 uint8_t CAN_Tx[8];
 
 void sendCAN_HSEnd()
@@ -31,7 +31,7 @@ void sendCAN_HSEnd()
     TX_Message[0] = 'E';
 
     // Send CAN Message
-    CAN_TX(ID_MODULE_INFO, TX_Message);
+    CAN_TX(CAN_ID, TX_Message);
 }
 
 void sendCAN_ModuleInfo(uint8_t position, uint32_t ID)
@@ -44,7 +44,7 @@ void sendCAN_ModuleInfo(uint8_t position, uint32_t ID)
     TX_Message[4] = (uint8_t)(ID); // Least significant byte
 
     // Send CAN Message
-    CAN_TX(ID_MODULE_INFO, TX_Message);
+    CAN_TX(CAN_ID, TX_Message);
 }
 
 void debugPrintEastWest(uint8_t eastHS, uint8_t westHS)
@@ -74,7 +74,7 @@ bool waitMode(uint8_t Message[])
     while (true)
     {
 
-        debugPrintStatement("Waiting");
+        // debugPrintStatement("Waiting");
 
         setRow(6);
         delayMicroseconds(5);
@@ -87,7 +87,7 @@ bool waitMode(uint8_t Message[])
         while (CAN_CheckRXLevel())
             CAN_RX(ID, Message);
 
-        if (Message[0] == 'E' && ID == ID_MODULE_INFO)
+        if (Message[0] == 'E' && ID == CAN_ID)
         {
             return true;
         }
@@ -97,10 +97,9 @@ bool waitMode(uint8_t Message[])
         }
         delay(100);
     }
-    debugPrintStatement("Erroring");
+    // debugPrintStatement("Erroring");
     return false;
 }
-
 
 bool handshakeRoutine(uint8_t &position)
 {
@@ -111,6 +110,10 @@ bool handshakeRoutine(uint8_t &position)
     bool detect = false;
     uint8_t Message[8] = {0};
     deviceID = HAL_GetUIDw0();
+
+    // Display loading screen
+
+    displayHandshake();
 
     // Set East & West HS output signals
     setRow(5);
@@ -148,7 +151,7 @@ bool handshakeRoutine(uint8_t &position)
             break;
         }
 
-        debugPrintEastWest(eastHS, westHS);
+        // debugPrintEastWest(eastHS, westHS);
         delay(100);
     }
 
@@ -156,7 +159,7 @@ bool handshakeRoutine(uint8_t &position)
     {
         // Only Module
         moduleID.push_back(deviceID);
-        position = 10;
+        position = 0;
         return false;
     }
     else if (westHS && !eastHS)
@@ -174,7 +177,7 @@ bool handshakeRoutine(uint8_t &position)
 
         digitalWrite(REN_PIN, 1);
         delayMicroseconds(5);
-        debugPrintStatement("set low");
+        // debugPrintStatement("set low");
         // Set position
         position = 0;
 

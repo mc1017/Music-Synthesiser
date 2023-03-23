@@ -11,7 +11,6 @@ std::vector<uint32_t> moduleID = {};
 // Global variable to hold the device's position
 uint8_t position;
 uint32_t deviceID;
-uint32_t deviceIDs[3];
 
 // Transmitter / Reciever setting
 bool transmitter = false;

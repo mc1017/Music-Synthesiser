@@ -2,6 +2,9 @@
 #define WAVEFORM_H
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <Keyboard.h>
+#include <Waveform.h>
+#include <cmath>
 
 extern uint8_t octave;
 extern volatile uint32_t currentStepSize;

@@ -339,6 +339,10 @@ void updateDisplayTask(void *pvParameters)
 void setup()
 {
     // put your setup code here, to run once:
+<<<<<<< HEAD
+=======
+    Serial.begin(9600);
+>>>>>>> 637e67fef0ca02adc273d85f21231fcffa6ec9fc
     // Set pin directions
     pinMode(RA0_PIN, OUTPUT);
     pinMode(RA1_PIN, OUTPUT);

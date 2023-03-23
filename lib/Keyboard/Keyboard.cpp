@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <U8g2lib.h>
 #include <Keyboard.h>
 // Pin definitions
 // Row select and enable
@@ -32,11 +31,8 @@ const int HKOE_BIT = 6;
 // Constants
 const uint32_t interval = 100; // Display update interval
 volatile uint8_t keyArray[7];
-volatile uint8_t keyArray2[7] = {15,15,15,15,15,15,15};
-volatile uint8_t keyArray3[7] = {15,15,15,15,15,15,15};
-
-// Display driver object
-U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
+volatile uint8_t keyArray2[7] = {15, 15, 15, 15, 15, 15, 15};
+volatile uint8_t keyArray3[7] = {15, 15, 15, 15, 15, 15, 15};
 
 Knob::Knob() {}
 

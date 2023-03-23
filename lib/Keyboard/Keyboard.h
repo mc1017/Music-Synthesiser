@@ -1,7 +1,6 @@
 #ifndef KEYBOARD_INTERFACE_H
 #define KEYBOARD_INTERFACE_H
 #include <Arduino.h>
-#include <U8g2lib.h>
 
 // Pin definitions
 // Row select and enable
@@ -48,9 +47,6 @@ extern const uint32_t stepSizes1[];
 extern const uint32_t stepSizes2[];
 
 extern const uint32_t *const stepSizeList[];
-
-// Display driver object
-extern U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2;
 
 class Knob
 {

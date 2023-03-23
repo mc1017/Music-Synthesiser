@@ -183,10 +183,16 @@ Task 3: Description of Task 3, implemented as a thread.
 
 The following table shows the theoretical minimum initiation interval and measured maximum execution time for each task:
 
-Task	Theoretical Minimum Initiation Interval	Measured Maximum Execution Time
-1	Value1	Value2
-2	Value3	Value4
-3	Value5	Value6
+
+| Task              | Priority   | Initiation Interval | Execution Time  |
+|-------------------|------------|---------------------|-----------------|
+| displayUpdateTask | 1          | 100 ms              | 16.021 ms       |                   
+| scanKeysTask      | 2          | 20 ms               | 65.6 µs         |                   
+| CAN_RX_Task       | 3          | 25.2 ms             | 30 µs           |                  
+| CAN_TX_Task       | 3          | 60 ms               | 500 µs          |                   
+| sampleISR         | High       | 45.5 µs             | 29 µs           |               
+| CAN_RX_ISR        | High       | 0.7 ms              |  1  µs          |         
+| CAN_TX_ISR        | High       | 0.7 ms              |  1 µs           |           
 
 ### Critical Instant Analysis
 

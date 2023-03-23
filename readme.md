@@ -22,6 +22,7 @@ The following documentation provides an overview of the coursework project and m
     - [Critical Instant Analysis](#critical-instant-analysis)
     - [CPU Utilization](#cpu-utilization)
     - [Shared Data Structures](#shared-data-structures)
+    - [Intertask Blocking Dependencies](#intertask-blocking-dependencies)
 ## Features
 
 The project consists of several key features designed to fulfill its purpose and provide the required functionality:
@@ -101,8 +102,8 @@ The following custom libraries are included in `main.cpp`:
 - `<ES_CAN.h>`: 
   - (From ES-synth-starter)For initialization and configuration of the CAN module on the STM32 using the HAL library. 
 - `<Keyboard.h>`: 
-  - Defines pin assignments for various inputs and outputs, including the key matrix, audio outputs, and the joystick input. 
-  - Defines a class called "Knob" that is used to read and track the rotary encoders' input.
+  - Defines the STM32 pin assignments, input/outputs which include the key matrix, audio outputs, and the joystick input. 
+  - Defines the class "Knob"  used to read and track the rotary encoders' input.
   - Defines functions to update the state of the rotary encoders. 
 - `<CAN_HandShake.h>`:
   - Initializes various variables and constants for assigning the keyabord as either a transmitter / reciever. 
@@ -224,9 +225,18 @@ The tasks follow a strict order when acquiring and releasing resources, which pr
 
 ### Shared Data Structures 
 
-There are the following shared variables between tasks: 
-- A mutex that protects the shared data structure that represents the state of the keys on the matrix keypad.
--  A mutex that protects the variables used to calculate the minimum and maximum values of the waveform output.
-- A mutex that protects the variable used to set the rotation of a knob that controls the output voltage.
-- A mutex that protects the variable used to set the step size for sampling the waveform output.
-- A mutex that protects the CAN message buffer used for receiving messages over the CAN bus.
+The code deploys mutexes and semaphores to guarantee safe access and synchronisation between tasks. 
+
+These are the descriptions of Mutexes and Semaphores used: 
+- `keyArrayMutex`: Mutex and Semaphore that protects the state of the matrix keypad.
+- `minMaxMutex`: Mutex and Semaphore that protects the minimum and maximum values of the waveform output.
+- `rotationMutex`: Mutex and Semaphore that protects the variable that controls the output voltage, using the rotation of a knob.
+- `currentStepSizeMutex`: Mutex and Semaphore that protects the variable that sets the step size for sampling the waveform output. 
+- `RX_MessageMutex`: Mutex and Semaphore that protects the CAN RX message queue used for receiving messages over the CAN bus.
+- `CAN_TXSemaphore`: Semaphore that protects the CAN TX queue, allowing only one task to transmit data over the CAN bus at once.
+
+### Intertask Blocking Dependencies 
+
+
+
+

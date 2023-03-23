@@ -91,6 +91,51 @@ The following custom libraries are included in `main.cpp`:
 
 ### Dependacy Graph
 
+|-- U8g2 @ 2.34.15
+|   |-- SPI @ 1.0.0
+|   |-- Wire @ 1.0.0
+|-- STM32duino FreeRTOS @ 10.3.1
+|-- CAN_HandShake
+|   |-- Display
+|   |   |-- ES_CAN
+|   |   |-- Keyboard
+|   |   |   |-- U8g2 @ 2.34.15
+|   |   |   |   |-- SPI @ 1.0.0
+|   |   |   |   |-- Wire @ 1.0.0
+|   |   |-- U8g2 @ 2.34.15
+|   |   |   |-- SPI @ 1.0.0
+|   |   |   |-- Wire @ 1.0.0
+|   |-- ES_CAN
+|   |-- Keyboard
+|   |   |-- U8g2 @ 2.34.15
+|   |   |   |-- SPI @ 1.0.0
+|   |   |   |-- Wire @ 1.0.0
+|   |-- U8g2 @ 2.34.15
+|   |   |-- SPI @ 1.0.0
+|   |   |-- Wire @ 1.0.0
+|-- Display
+|   |-- ES_CAN
+|   |-- Keyboard
+|   |   |-- U8g2 @ 2.34.15
+|   |   |   |-- SPI @ 1.0.0
+|   |   |   |-- Wire @ 1.0.0
+|   |-- U8g2 @ 2.34.15
+|   |   |-- SPI @ 1.0.0
+|   |   |-- Wire @ 1.0.0
+|-- ES_CAN
+|-- Keyboard
+|   |-- U8g2 @ 2.34.15
+|   |   |-- SPI @ 1.0.0
+|   |   |-- Wire @ 1.0.0
+|-- Waveform
+|   |-- Keyboard
+|   |   |-- U8g2 @ 2.34.15
+|   |   |   |-- SPI @ 1.0.0
+|   |   |   |-- Wire @ 1.0.0
+|   |-- U8g2 @ 2.34.15
+|   |   |-- SPI @ 1.0.0
+|   |   |-- Wire @ 1.0.0
+
 ## Coursework Report
 
 ### Task Identification and Implementation

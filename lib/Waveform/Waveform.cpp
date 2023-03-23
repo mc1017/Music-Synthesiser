@@ -2,6 +2,7 @@
 #include <U8g2lib.h>
 #include <Keyboard.h>
 #include <Waveform.h>
+#include <cmath>
 
 uint8_t octave;
 volatile uint32_t currentStepSize;
@@ -67,17 +68,21 @@ void square(int32_t &Vout, uint8_t &activeNotes, int index)
     ++activeNotes;
 }
 
+// Sine Waveform
 void sine(int32_t &Vout, uint8_t &activeNotes, int index)
 {
     const uint32_t *stepSizes = stepSizeList[octave];
     phaseAcc[index] += stepSizes[index];
     int32_t noteVout = 0;
-    int32_t sine[] = {0, 22, 44, 64, 82, 98, 111, 120, 126, 128, 126, 120, 111, 98, 82, 64, 44, 22, 0, -22, -44, -64, -82, -98, -111, -120, -126, -128, -126, -120, -111, -98, -82, -64, -44, -22};
-    noteVout = (phaseAcc[index] >> 24);
-    noteVout = sine[int(noteVout / 5.33)];
-    Vout += noteVout >> (8 - knob[3].getRotation());
+    float angle = 2.0 * 3.1416 * (static_cast<float>(phaseAcc[index]) / static_cast<float>(MAX_UINT32));
+    noteVout = 150 * sin(angle);
+    float knobPosition = static_cast<float>(knob[3].getRotation()) / 8.0;
+    float attenuationFactor = pow(knobPosition, 2);
+    noteVout = static_cast<int32_t>(static_cast<float>(noteVout) * attenuationFactor);
+    Vout += noteVout;
     ++activeNotes;
 }
+
 // void LFO()
 // {
 //     static uint32_t phaseAcc = 0;
@@ -134,11 +139,11 @@ void waveforms(int32_t &Vout, uint8_t &activeNotes, int index)
     case 3:
         sine(Vout, activeNotes, index);
         break;
-        // case 4:
-        //     LFO();
-        //     break;
-        // default:
-        //     sawTooth();
-        //     break;
+    // case 4:
+    //     LFO();
+    //     break;
+    default:
+        sawTooth(Vout, activeNotes, index);
+        break;
     }
 }

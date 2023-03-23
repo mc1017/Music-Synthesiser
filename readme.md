@@ -105,7 +105,7 @@ The following custom libraries are included in `main.cpp`:
 
 
 ### Dependacy Graph
-
+```
 |-- U8g2 @ 2.34.15
 |   |-- SPI @ 1.0.0
 |   |-- Wire @ 1.0.0
@@ -150,7 +150,7 @@ The following custom libraries are included in `main.cpp`:
 |   |-- U8g2 @ 2.34.15
 |   |   |-- SPI @ 1.0.0
 |   |   |-- Wire @ 1.0.0
-
+```
 ## Coursework Report
 
 ### Task Identification and Implementation

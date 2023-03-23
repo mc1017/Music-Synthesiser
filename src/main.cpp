@@ -4,6 +4,7 @@
 #include <ES_CAN.h>
 #include <Keyboard.h>
 #include <CAN_HandShake.h>
+#include <Waveform.h>
 #include <vector>
 
 SemaphoreHandle_t keyArrayMutex;
@@ -32,82 +33,12 @@ void sampleISR(){
 }
 */
 
-class Knob
-{
-public:
-    Knob() {}
-
-    Knob(uint8_t minValue, uint8_t maxValue)
-        : minValue(minValue), maxValue(maxValue), rotation(0), prevA(0), prevB(0) {}
-
-    void setLimits(uint8_t minValue, uint8_t maxValue)
-    {
-        xSemaphoreTake(minMaxMutex, portMAX_DELAY);
-        this->minValue = minValue;
-        this->maxValue = maxValue;
-        xSemaphoreGive(minMaxMutex);
-    }
-
-    uint8_t getRotation() const
-    {
-        return rotation;
-    }
-
-    void updateRotation(uint8_t currentA, uint8_t currentB)
-    {
-
-        int delta = 0;
-        xSemaphoreTake(rotationMutex, portMAX_DELAY);
-        if (prevA == 1 && prevB == 1 && currentA == 0 && currentB == 1)
-        {
-            delta = 1;
-        }
-        else if (prevA == 1 && prevB == 0 && currentB == 0 && currentA == 0)
-        {
-            delta = -1;
-        }
-        else if (prevA == 0 && prevB == 0 && currentA == 1 && currentB == 0)
-        {
-            delta = 1;
-        }
-        else if (prevA == 0 && prevB == 1 && currentB == 1 && currentA == 1)
-        {
-            delta = -1;
-        }
-
-        uint8_t tempRotation = rotation + delta;
-
-        // Check that the new rotation value is within permitted bounds
-        if (tempRotation >= minValue && tempRotation <= maxValue)
-        {
-            __atomic_store_n(&rotation, tempRotation, __ATOMIC_RELAXED);
-        }
-        xSemaphoreGive(rotationMutex);
-        // Store current state as previous state
-        prevA = currentA;
-        prevB = currentB;
-    }
-
-private:
-    uint8_t prevA;
-    uint8_t prevB;
-    uint8_t minValue;
-    uint8_t maxValue;
-    uint8_t rotation;
-};
-
-Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
-void waveforms(Knob)
-{
-}
 void sampleISR()
 {
-    static uint32_t phaseAcc[12] = {0};
-    const uint32_t *stepSizes = stepSizeList[octave];
+
+    // Calculate the output for each active note
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
-    // Calculate the output for each active note
-
     for (uint8_t i = 0; i < 3; ++i)
     {
         for (uint8_t j = 0; j < 4; ++j)
@@ -115,12 +46,8 @@ void sampleISR()
             uint8_t key = ((keyArray[i] >> j) & 1);
             if (key == 0)
             {
-                phaseAcc[i * 4 + j] += stepSizes[i * 4 + j];
-                int32_t noteVout = (phaseAcc[i * 4 + j] >> 24) - 128;
-                noteVout = noteVout >> (8 - knob[3].getRotation());
-                Vout += noteVout;
-                ++activeNotes;
-
+                int currentIndex = i * 4 + j;
+                waveforms(Vout, activeNotes, currentIndex);
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
             }
         }
@@ -254,6 +181,10 @@ void scanKeysTask(void *pvParameters)
                 octave = RX_Message[5];
             xSemaphoreGive(RX_MessageMutex);
         }
+        else if (transmitter && multipleModule)
+        {
+            octave = position;
+        }
         // uint8_t TX_Message[8] = {0};
         for (uint8_t i = 0; i < 5; i++)
         {
@@ -281,6 +212,7 @@ void scanKeysTask(void *pvParameters)
             uint8_t currentB2 = (keyArray[i] & 0b00001000) >> 3;
             uint8_t currentA3 = keyArray[i] & 0b00000001;
             uint8_t currentB3 = (keyArray[i] & 0b00000010) >> 1;
+            xSemaphoreTake(rotationMutex, portMAX_DELAY);
             switch (i)
             {
             case 3:
@@ -306,11 +238,14 @@ void scanKeysTask(void *pvParameters)
                 u8g2.print(keyArray[i], HEX);
                 break;
             }
+            xSemaphoreGive(rotationMutex);
             xSemaphoreGive(keyArrayMutex);
         }
         TX_Message[5] = position;
         if (transmitter && multipleModule)
+        {
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
+        }
 
         if (!transmitter && multipleModule)
         {
@@ -391,7 +326,7 @@ void updateDisplayTask(void *pvParameters)
 void setup()
 {
     // put your setup code here, to run once:
-
+    Serial.begin(9600);
     // Set pin directions
     pinMode(RA0_PIN, OUTPUT);
     pinMode(RA1_PIN, OUTPUT);

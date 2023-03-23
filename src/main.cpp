@@ -37,11 +37,14 @@ void sampleISR(){
 
 void sampleISR()
 {
-
+    boolean keyboard3 = 0;
     // Calculate the output for each active note
-
-    if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF && RX_Message2[0] == 0xF && RX_Message2[1] == 0xF && RX_Message2[2] == 0xF)
-         octave = 0;
+    if (RX_Message2[5]== 2) 
+    {
+        keyboard3 =1;
+    }
+    // if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF && RX_Message2[0] == 0xF && RX_Message2[1] == 0xF && RX_Message2[2] == 0xF)
+    //      octave = 0;
     // else {
     //     octave = RX_Message[5];
     // }
@@ -57,7 +60,7 @@ void sampleISR()
             uint8_t key = ((keyArray[i] >> j) & 1);
             if (key == 0)
             {
-                
+                octave =0 + knob[1].getRotation();   
                 waveforms(Vout, activeNotes, currentIndex);
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
                 drum(Vout, activeNotes, currentIndex);
@@ -66,15 +69,18 @@ void sampleISR()
             key = ((keyArray2[i] >> j) & 1);
             if (key == 0)
             {
-                octave = 1;
+                octave = 1 + knob[1].getRotation();
                 waveforms(Vout, activeNotes, currentIndex);
             }
-            key = ((keyArray3[i] >> j) & 1);
-            if (key == 0)
-            {   
-                octave=2;
-                waveforms(Vout, activeNotes, currentIndex);
+            if (keyboard3) {
+                key = ((keyArray3[i] >> j) & 1);
+                if (key == 0)
+                {   
+                    octave=2 + knob[1].getRotation();
+                    waveforms(Vout, activeNotes, currentIndex);
+                }
             }
+            
         }
     }
 

@@ -21,8 +21,7 @@ The following documentation provides an overview of the coursework project and m
     - [Task Characterisation](#task-characterisation)
     - [Critical Instant Analysis](#critical-instant-analysis)
     - [CPU Utilization](#cpu-utilization)
-
-
+    - [Shared Data Structures](#shared-data-structures)
 ## Features
 
 The project consists of several key features designed to fulfill its purpose and provide the required functionality:
@@ -222,3 +221,12 @@ An analysis of inter-task blocking dependencies was conducted to identify any po
 Resource 1: Description of Resource 1
 Resource 2: Description of Resource 2
 The tasks follow a strict order when acquiring and releasing resources, which prevents circular wait and eliminates the possibility of deadlock.
+
+### Shared Data Structures 
+
+There are the following shared variables between tasks: 
+- A mutex that protects the shared data structure that represents the state of the keys on the matrix keypad.
+-  A mutex that protects the variables used to calculate the minimum and maximum values of the waveform output.
+- A mutex that protects the variable used to set the rotation of a knob that controls the output voltage.
+- A mutex that protects the variable used to set the step size for sampling the waveform output.
+- A mutex that protects the CAN message buffer used for receiving messages over the CAN bus.

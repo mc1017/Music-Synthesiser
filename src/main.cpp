@@ -6,6 +6,7 @@
 #include <CAN_HandShake.h>
 #include <Waveform.h>
 #include <Display.h>
+#include <Drum.h>
 #include <vector>
 
 SemaphoreHandle_t keyArrayMutex;
@@ -38,18 +39,41 @@ void sampleISR()
 {
 
     // Calculate the output for each active note
+
+    if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF && RX_Message2[0] == 0xF && RX_Message2[1] == 0xF && RX_Message2[2] == 0xF)
+         octave = 0;
+    // else {
+    //     octave = RX_Message[5];
+    // }
+        
+
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     for (uint8_t i = 0; i < 3; ++i)
     {
         for (uint8_t j = 0; j < 4; ++j)
         {
+            int currentIndex = i * 4 + j;
             uint8_t key = ((keyArray[i] >> j) & 1);
             if (key == 0)
             {
-                int currentIndex = i * 4 + j;
+                
                 waveforms(Vout, activeNotes, currentIndex);
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+                drum(Vout, activeNotes, currentIndex);
+                 
+            }
+            key = ((keyArray2[i] >> j) & 1);
+            if (key == 0)
+            {
+                octave = 1;
+                waveforms(Vout, activeNotes, currentIndex);
+            }
+            key = ((keyArray3[i] >> j) & 1);
+            if (key == 0)
+            {   
+                octave=2;
+                waveforms(Vout, activeNotes, currentIndex);
             }
         }
     }
@@ -118,7 +142,13 @@ void Can_RX_Task(void *pvParameters)
         xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
         for (int i = 0; i < 8; i++)
         {
+            if (tmp_RX_Message[5] == 1) {
             RX_Message[i] = tmp_RX_Message[i];
+            }
+            else {
+                RX_Message2[i] = tmp_RX_Message[i];
+            }
+            
         }
         xSemaphoreGive(RX_MessageMutex);
     }
@@ -162,6 +192,7 @@ void scanKeysTask(void *pvParameters)
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     uint8_t tmp_RX[8] = {0};
+    uint8_t tmp_RX_2[8] = {0};
     uint8_t test_array[5] = {0};
     uint8_t TX_Message[8] = {0};
 
@@ -172,14 +203,19 @@ void scanKeysTask(void *pvParameters)
         if (!transmitter && multipleModule)
         {
             xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
+            if (RX_Message[5]==1) {
+                for (int i = 0; i < 8; i++)
+                {
+                    tmp_RX[i] = RX_Message[i];
+                }
+            }
+            
             for (int i = 0; i < 8; i++)
             {
-                tmp_RX[i] = RX_Message[i];
+            tmp_RX_2[i] = RX_Message2[i];
             }
-            if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
-                octave = 0;
-            else
-                octave = RX_Message[5];
+        
+            
             xSemaphoreGive(RX_MessageMutex);
         }
         else if (transmitter && multipleModule)
@@ -196,11 +232,16 @@ void scanKeysTask(void *pvParameters)
             TX_Message[i] = keyArray[i];
             if (i < 3)
             {
-                if (!transmitter && multipleModule)
-                    keyArray[i] = keyArray[i] & tmp_RX[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
-                else
+                if (!transmitter && multipleModule) {
+                    keyArray[i] = keyArray[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
+                    keyArray2[i] =  tmp_RX[i];
+                    keyArray3[i] = tmp_RX_2[i];
+                }
+                else {
                     keyArray[i] = keyArray[i];
+                }
             }
+
             test_array[i] = keyArray[i];
             // TX_Message[i] = keyArray[i];
             // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);

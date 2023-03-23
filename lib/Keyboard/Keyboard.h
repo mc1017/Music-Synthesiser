@@ -36,6 +36,9 @@ extern const uint32_t interval;        // Display update interval
 
 extern volatile uint32_t currentStepSize;
 extern volatile uint8_t keyArray[7];
+extern volatile uint8_t keyArray2[7];
+extern volatile uint8_t keyArray3[7];
+
 extern uint8_t octave;
 
 extern const uint32_t stepSizes0[];

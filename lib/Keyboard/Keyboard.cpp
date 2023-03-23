@@ -32,6 +32,8 @@ const int HKOE_BIT = 6;
 // Constants
 const uint32_t interval = 100; // Display update interval
 volatile uint8_t keyArray[7];
+volatile uint8_t keyArray2[7] = {15,15,15,15,15,15,15};
+volatile uint8_t keyArray3[7] = {15,15,15,15,15,15,15};
 
 // Display driver object
 U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
@@ -85,7 +87,7 @@ void Knob::updateRotation(uint8_t currentA, uint8_t currentB)
     prevB = currentB;
 }
 
-Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
+Knob knob[4] = {Knob(0, 4), Knob(0, 3), Knob(0, 2), Knob(0, 8)};
 
 // Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value)

@@ -22,6 +22,8 @@ const uint32_t stepSizes2[] = {
 };
 const uint32_t *const stepSizeList[] = {stepSizes0, stepSizes1, stepSizes2};
 
+
+
 void sawTooth(int32_t &Vout, uint8_t &activeNotes, int index)
 {
     const uint32_t *stepSizes = stepSizeList[octave];
@@ -124,8 +126,7 @@ void sine(int32_t &Vout, uint8_t &activeNotes, int index)
 // }
 void waveforms(int32_t &Vout, uint8_t &activeNotes, int index)
 {
-
-    switch (knob[1].getRotation())
+    switch (knob[0].getRotation())
     {
     case 0:
         sawTooth(Vout, activeNotes, index);
@@ -139,7 +140,7 @@ void waveforms(int32_t &Vout, uint8_t &activeNotes, int index)
     case 3:
         sine(Vout, activeNotes, index);
         break;
-    // case 4:
+    case 4:
     //     LFO();
     //     break;
     default:

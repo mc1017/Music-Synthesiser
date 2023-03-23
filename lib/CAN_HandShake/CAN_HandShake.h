@@ -18,6 +18,7 @@ extern bool multipleModule;
 
 // Receiver / Transmitter Message
 extern uint8_t RX_Message[8];
+extern uint8_t RX_Message2[8];
 extern uint8_t CAN_Tx[8];
 
 // Global variable to hold the device's position

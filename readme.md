@@ -8,19 +8,19 @@ The following documentation provides an overview of the coursework project and m
 
 ## Table of Contents
 
-1. [Features](#features)
+- [Music Synthesizer Project](#music-synthesizer-project)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
     - [Core Features](#core-features)
     - [Advanced Features](#advanced-features)
-2. [Code Structure](#code-structure)
+  - [Code Structure](#code-structure)
     - [Libraries](#libraries)
-    - [Dependancy Graph](#dependancy-graph)
-3. [Coursework Report](#coursework-report)
+    - [Dependacy Graph](#dependacy-graph)
+  - [Coursework Report](#coursework-report)
     - [Task Identification and Implementation](#task-identification-and-implementation)
     - [Task Characterisation](#task-characterisation)
     - [Critical Instant Analysis](#critical-instant-analysis)
     - [CPU Utilization](#cpu-utilization)
-    - [Shared Data Structures and Synchronization](#shared-data-structures-and-synchronization)
-    - [Inter-Task Blocking and Deadlock Analysis](#inter-task-blocking-and-deadlock-analysis)
 
 
 ## Features
@@ -56,10 +56,38 @@ The project consists of several key features designed to fulfill its purpose and
 ## Code Structure
 
 The project follows a modular code structure, organized as follows:
+`main.cpp`: The main entry point of the program, responsible for initializing and running the system. The `main.cpp` is responsible for the following: 
+- Imports Relevant Libraries
+- CAN Bus Communitcation: 
+  - Performs initialization that sets filters, registers CAN Bus related ISRs, etc. 
+- Handshake: 
+  - Performs Handshake routine and assign transmitter / reciever roles on set-up. 
+  - Assigns position values that are stored locally on each board. 
+- Data Sharing: 
+  - Creates Mutexes and Saraphones for variables such as the `keyArrayMutex`, `RX_MessageMutex` for safe data sharing between tasks. 
+- Starts RTOS: 
+  - Initializes and runs appropreate threads according to their configuration (Only module, transmitter, or reciever). 
+  - Starts the RTOS scheduler. 
+- RTOS Tasks: 
+  - Scans Key matrix and updates variables for displaying / playing sound. 
+  - Displays relevant information that is provided by the ScanKeys task. 
+  - Plays notes according to the information provided by the ScanKeys task. 
+  - Sends information provided by the ScanKeys task or recieves information from the other boards depending on their configuration. 
 
-- `main.cpp`: The main entry point of the program, responsible for initializing and running the system.
+All feature-specific code are included in [Libraries](#libraries). 
+
 
 ### Libraries 
+
+The following imported libraries are included in `main.cpp`: 
+- `<Arduino.h>`: Utilize an Arduino-like environment that makes it easy to access microcontroller hardware features. 
+- `<U8g2lib.h>`: Access useful functions to program the display on the keyboard. 
+- `<STM32FreeRTOS.h>`: Utilize an RTOS system for handling multithreading. 
+- `<vector>`: To store ModuleIDs in a dynamic array (vector). 
+
+The following custom libraries are included in `main.cpp`: 
+- `<ES_CAN.h>`: 
+
 
 ### Dependacy Graph
 

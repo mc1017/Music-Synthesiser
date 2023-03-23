@@ -41,9 +41,9 @@ Knob Control Functions Layouts
 
 
 
-1. **Feature 1**: Scanning the key matrix to find out which keys are pressed
+**Feature 1**: Scanning the key matrix to find out which keys are pressed
     - A keyArray is 
-2. **Feature 2**: Using an interrupt to generate a sawtooth wave
+**Feature 2**: Using an interrupt to generate a sawtooth wave
     - A dedicated processing module processes the collected data in real-time.
     - Advanced algorithms are used to detect specific patterns and events.
 3. **Feature 3**: Using threads to allow the key scan and display tasks to be decoupled and executed concurrently 
@@ -156,18 +156,18 @@ Dependency Graph
 ```
 ## Coursework Report
 
-### Task Identification and Implementation
+### Tasks Identification
 
-The real-time system consists of the following tasks:
+The real-time music synthesiser consists of the following tasks:
 
-- A task that samples the waveform output to a DAC (digital-to-analog converter) at a fixed frequency and sets the output voltage based on the active keys on a matrix keypad. This task also ensures that the output voltage does not clip.
-- A task that reads input from the matrix keypad and updates a shared data structure that represents the state of the keys.
-- A task that sends and receives messages over the CAN bus to communicate with other devices.
-- A task that updates the display with information about the current state of the system.
 
-Task 1: Description of Task 1, implemented as a thread.
-Task 2: Description of Task 2, implemented as an interrupt.
-Task 3: Description of Task 3, implemented as a thread.
+1. A task that reads input from the matrix keypad and updates a shared data structure that represents the state of the keys in `keyArray`.
+2. A task that updates the display with information about the current state of the system.
+3. A task that sends messages over the CAN bus and act as the transmitter.
+4. A task that receives messages over the CAN bus and act as the receiver.
+5. An interrupt that samples the waveform output to a DAC (digital-to-analog converter) at a fixed frequency and sets the output voltage based on the active keys on a matrix keypad. This task also ensures that the output voltage does not clip.
+6. An interrupt that sends CAN dataframe whenever buffer is full.
+7. An interrupt that reads CAN dataframe whenever buffer is full. 
 
 ### Task Characterisation
 

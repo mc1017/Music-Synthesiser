@@ -101,12 +101,6 @@ bool waitMode(uint8_t Message[])
     return false;
 }
 
-void getDeviceIDs()
-{
-    deviceIDs[0] = HAL_GetUIDw0();
-    deviceIDs[1] = HAL_GetUIDw1();
-    deviceIDs[2] = HAL_GetUIDw2();
-}
 
 bool handshakeRoutine(uint8_t &position)
 {

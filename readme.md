@@ -97,15 +97,14 @@ The following imported libraries are included in `main.cpp`:
 - `<Arduino.h>`: Utilize an Arduino-like environment that makes it easy to access microcontroller hardware features. 
 - `<U8g2lib.h>`: Access useful functions to program the display on the keyboard. 
 - `<STM32FreeRTOS.h>`: Utilize an RTOS system for handling multithreading. 
-- `<vector>`: To store ModuleIDs in a dynamic array (vector). 
 
 The following custom libraries are included in `main.cpp`: 
 - `<ES_CAN.h>`: 
-  - For initialization and configuration of the CAN module on the STM32 using the HAL library. 
+  - (From ES-synth-starter)For initialization and configuration of the CAN module on the STM32 using the HAL library. 
 - `<Keyboard.h>`: 
   - Defines pin assignments for various inputs and outputs, including the key matrix, audio outputs, and the joystick input. 
   - Defines a class called "Knob" that is used to read and track the rotary encoders' input.
-  - Scans the key matrix for button presses and to update the state of the rotary encoders. 
+  - Defines functions to update the state of the rotary encoders. 
 - `<CAN_HandShake.h>`:
   - Initializes various variables and constants for assigning the keyabord as either a transmitter / reciever. 
   - Runs a Handshake Routine to inform the board of whether there are multiple boards, whether it is a transmitter or reciever, and what position it is at among multiple connected keyboards. 

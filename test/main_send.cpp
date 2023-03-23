@@ -2,19 +2,61 @@
 #include <U8g2lib.h>
 #include <STM32FreeRTOS.h>
 #include <ES_CAN.h>
-#include <Keyboard.h>
-#include <CAN_HandShake.h>
-#include <vector>
 
+// Constants
+const uint32_t interval = 100;               // Display update interval
+const std::uint32_t MAX_UINT32 = 4294967295; // max value -1 of uint32_t
+
+// Pin definitions
+// Row select and enable
+const int RA0_PIN = D3;
+const int RA1_PIN = D6;
+const int RA2_PIN = D12;
+const int REN_PIN = A5;
+
+// Matrix input and output
+const int C0_PIN = A2;
+const int C1_PIN = D9;
+const int C2_PIN = A6;
+const int C3_PIN = D1;
+const int OUT_PIN = D11;
+
+// Audio analogue out
+const int OUTL_PIN = A4;
+const int OUTR_PIN = A3;
+
+// Joystick analogue in
+const int JOYY_PIN = A0;
+const int JOYX_PIN = A1;
+
+// Output multiplexer bits
+const int DEN_BIT = 3;
+const int DRST_BIT = 4;
+const int HKOW_BIT = 5;
+const int HKOE_BIT = 6;
+
+// Look up current step size
+volatile uint32_t currentStepSize;
+volatile uint8_t keyArray[7];
 SemaphoreHandle_t keyArrayMutex;
 SemaphoreHandle_t minMaxMutex;
 SemaphoreHandle_t rotationMutex;
 SemaphoreHandle_t currentStepSizeMutex;
-SemaphoreHandle_t RX_MessageMutex;
-SemaphoreHandle_t CAN_TXSemaphore;
+
+// Display driver object
+U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
+
 // CAN queue
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
+
+
+uint8_t RX_Message[8];
+SemaphoreHandle_t RX_MessageMutex;
+uint8_t CAN_Tx[8];
+SemaphoreHandle_t CAN_TXSemaphore;
+// CAN Headers
+const uint32_t ID_MODULE_INFO = 0x111;
 
 // ALTERNATE WAVEFORM(Triangle)
 /*
@@ -97,13 +139,13 @@ private:
 };
 
 Knob knob[4] = {Knob(0, 2), Knob(0, 3), Knob(0, 10), Knob(0, 8)};
-void waveforms(Knob)
-{
-}
+
 void sampleISR()
 {
     static uint32_t phaseAcc[12] = {0};
-    const uint32_t *stepSizes = stepSizeList[octave];
+    const uint32_t stepSizes[] = {
+        51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+    };
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     // Calculate the output for each active note
@@ -120,9 +162,10 @@ void sampleISR()
                 noteVout = noteVout >> (8 - knob[3].getRotation());
                 Vout += noteVout;
                 ++activeNotes;
-
+                
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
             }
+
         }
     }
 
@@ -174,46 +217,19 @@ void CAN_RX_ISR(void)
     xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
 
-void CAN_TX_ISR(void)
-{
-    xSemaphoreGiveFromISR(CAN_TXSemaphore, NULL);
+void CAN_TX_ISR (void) {
+	xSemaphoreGiveFromISR(CAN_TXSemaphore, NULL);
 }
 
-// CAN Recieve Task
-void Can_RX_Task(void *pvParameters)
-{
-    uint8_t tmp_RX_Message[8] = {0};
-
-    while (1)
-    {
-        xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
-        xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-        for (int i = 0; i < 8; i++)
-        {
-            RX_Message[i] = tmp_RX_Message[i];
-        }
-        xSemaphoreGive(RX_MessageMutex);
-    }
-}
-
-// CAN send Task
-void CAN_TX_Task(void *pvParameters)
-{
-    uint8_t msgOut[8];
-    while (1)
-    {
-        xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
-        xSemaphoreTake(CAN_TXSemaphore, portMAX_DELAY);
-        CAN_TX(0x111, msgOut);
-    }
-}
 
 void canBusInitRoutine()
 {
+    
+   
     // Initialize CAN bus and disable looping
     uint32_t status = CAN_Init(false);
 
-    CAN_TXSemaphore = xSemaphoreCreateCounting(3, 3);
+    CAN_TXSemaphore = xSemaphoreCreateCounting(3,3);
 
     // Set filters for CAN signals
     status = setCANFilter(ID_MODULE_INFO, 0x7ff); // Send Handshake Device Info
@@ -226,35 +242,77 @@ void canBusInitRoutine()
 
     msgInQ = xQueueCreate(36, 8);
     msgOutQ = xQueueCreate(36, 8);
+    
+}
+
+void setRow(uint8_t rowIdx)
+{
+    // Set row select enable pin (REN) high
+    digitalWrite(REN_PIN, LOW);
+    digitalWrite(RA0_PIN, LOW);
+    digitalWrite(RA1_PIN, LOW);
+    digitalWrite(RA2_PIN, LOW);
+    // Read inputs from column 0
+    uint8_t bit_value0 = ((rowIdx >> 0) & 1);
+    uint8_t bit_value1 = ((rowIdx >> 1) & 1);
+    uint8_t bit_value2 = ((rowIdx >> 2) & 1);
+    if (bit_value0)
+    {
+        digitalWrite(RA0_PIN, HIGH);
+    }
+    if (bit_value1)
+    {
+        digitalWrite(RA1_PIN, HIGH);
+    }
+    if (bit_value2)
+    {
+        digitalWrite(RA2_PIN, HIGH);
+    }
+    // Set row select enable pin (REN) high
+    digitalWrite(REN_PIN, HIGH);
+}
+uint8_t readCols()
+{
+
+    uint8_t C0 = digitalRead(C0_PIN);
+    uint8_t C1 = digitalRead(C1_PIN);
+    uint8_t C2 = digitalRead(C2_PIN);
+    uint8_t C3 = digitalRead(C3_PIN);
+
+    digitalWrite(REN_PIN, LOW);
+
+    // Concatenate the four bits into a single byte and return
+    return (C3 << 3) | (C2 << 2) | (C1 << 1) | C0;
+}
+
+int highest_unset_bit(volatile uint8_t array[])
+{
+    uint16_t merged = ((uint16_t)array[2] & 0x0F) << 8 |
+                      ((uint16_t)array[1] & 0x0F) << 4 |
+                      ((uint16_t)array[0] & 0x0F);
+    int index = 0;
+    uint16_t mask = 0x800;
+    int i;
+    for (i = 11; i >= 0; i--)
+    {
+        if ((merged & mask) == 0)
+        {
+            break;
+        }
+        mask >>= 1;
+    }
+    return i;
 }
 
 void scanKeysTask(void *pvParameters)
 {
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
-
-    uint8_t tmp_RX[8] = {0};
-    uint8_t test_array[5] = {0};
+    
     uint8_t TX_Message[8] = {0};
-
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
-
-        if (!transmitter && multipleModule)
-        {
-            xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-            for (int i = 0; i < 8; i++)
-            {
-                tmp_RX[i] = RX_Message[i];
-            }
-            if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
-                octave = 0;
-            else
-                octave = RX_Message[5];
-            xSemaphoreGive(RX_MessageMutex);
-        }
-        // uint8_t TX_Message[8] = {0};
         for (uint8_t i = 0; i < 5; i++)
         {
             setRow(i);
@@ -262,16 +320,7 @@ void scanKeysTask(void *pvParameters)
             xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
             keyArray[i] = readCols();
             TX_Message[i] = keyArray[i];
-            if (i < 3)
-            {
-                if (!transmitter && multipleModule)
-                    keyArray[i] = keyArray[i] & tmp_RX[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
-                else
-                    keyArray[i] = keyArray[i];
-            }
-            test_array[i] = keyArray[i];
-            // TX_Message[i] = keyArray[i];
-            // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+            
 
             uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
             uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
@@ -308,23 +357,7 @@ void scanKeysTask(void *pvParameters)
             }
             xSemaphoreGive(keyArrayMutex);
         }
-        TX_Message[5] = position;
-        if (transmitter && multipleModule)
-            xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
-
-        if (!transmitter && multipleModule)
-        {
-            u8g2.setCursor(60, 10);
-            u8g2.print(RX_Message[5]);
-            u8g2.print(RX_Message[4]);
-            u8g2.print(RX_Message[3]);
-            u8g2.print(RX_Message[2]);
-            u8g2.print(RX_Message[1]);
-            u8g2.print(RX_Message[0]);
-        }
-
-        u8g2.setCursor(20, 30);
-        u8g2.print(position);
+        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
     }
 }
 
@@ -341,8 +374,8 @@ void update_display()
     u8g2.print(RX_Message[1]);
     u8g2.print(RX_Message[0]);
     xSemaphoreGive(RX_MessageMutex);
-    // xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
-
+    //xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
+    
     // transfer internal memory to the display
 }
 
@@ -353,8 +386,7 @@ void updateDisplayTask(void *pvParameters)
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    // if (transmitter && multipleModule)
-    //     uint8_t TX_Message[8] = {0};
+    // uint8_t TX_Message[8] = {0};
     // TX_Message[0] = 7;
     // TX_Message[1] = 6;
     // TX_Message[2] = 4;
@@ -368,7 +400,9 @@ void updateDisplayTask(void *pvParameters)
     {
         u8g2.clearBuffer();                 // clear the internal memory
         u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-        const uint32_t *stepSizes = stepSizeList[octave];
+        const uint32_t stepSizes[] = {
+            51076057, 54113197, 57330935, 60740010, 64351799, 68178356, 72232452, 76527617, 81078186, 85899346, 91007187, 96418756 // G# / Ab (830.61 Hz)
+        };
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         // Update display
         xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
@@ -378,14 +412,63 @@ void updateDisplayTask(void *pvParameters)
         u8g2.setCursor(2, 10);
         u8g2.print(currentStepSize);
         // u8g2.print(currentStepSize, HEX);
-        // if (!transmitter && multipleModule)
-        //     update_display();
+        
+        //xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+        
+        update_display();
 
         u8g2.sendBuffer(); // transfer internal memory to the display
 
         // Toggle LED
         digitalToggle(LED_BUILTIN);
     }
+}
+
+// CAN Recieve Task
+void CanComTask(void *pvParameters)
+{
+    uint8_t tmp_RX_Message[8]= {0};  
+    
+    while (1) {
+        xQueueReceive(msgInQ, tmp_RX_Message, portMAX_DELAY);
+        xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
+        RX_Message[0]=tmp_RX_Message[0];
+        RX_Message[1]=tmp_RX_Message[1];
+        RX_Message[2]=tmp_RX_Message[2];
+        RX_Message[3]=tmp_RX_Message[3];
+        RX_Message[4]=tmp_RX_Message[4];
+        RX_Message[5]=tmp_RX_Message[5];
+        RX_Message[6]=tmp_RX_Message[6];
+        RX_Message[7]=tmp_RX_Message[7];
+        xSemaphoreGive(RX_MessageMutex);
+    }
+    
+}
+
+// CAN send Task
+void CAN_TX_Task (void * pvParameters) {
+	uint8_t msgOut[8];
+	while (1) {
+		xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+		xSemaphoreTake(CAN_TXSemaphore, portMAX_DELAY);
+		CAN_TX(0x111, msgOut);
+	}
+}
+
+
+
+
+// Function to set outputs using key matrix
+void setOutMuxBit(const uint8_t bitIdx, const bool value)
+{
+    digitalWrite(REN_PIN, LOW);
+    digitalWrite(RA0_PIN, bitIdx & 0x01);
+    digitalWrite(RA1_PIN, bitIdx & 0x02);
+    digitalWrite(RA2_PIN, bitIdx & 0x04);
+    digitalWrite(OUT_PIN, value);
+    digitalWrite(REN_PIN, HIGH);
+    delayMicroseconds(2);
+    digitalWrite(REN_PIN, LOW);
 }
 
 void setup()
@@ -409,8 +492,6 @@ void setup()
     pinMode(JOYX_PIN, INPUT);
     pinMode(JOYY_PIN, INPUT);
 
-    deviceID = HAL_GetUIDw0();
-
     // Initialise display
     setOutMuxBit(DRST_BIT, LOW); // Assert display logic reset
     delayMicroseconds(2);
@@ -425,24 +506,12 @@ void setup()
 
     canBusInitRoutine();
 
-    multipleModule = handshakeRoutine(position);
-
-    // Resend Handshake End signal to ensure all modules exit the loop
-    delay(100);
-    sendCAN_HSEnd();
-
-    setOutPin();
-
     minMaxMutex = xSemaphoreCreateMutex();
     keyArrayMutex = xSemaphoreCreateMutex();
     rotationMutex = xSemaphoreCreateMutex();
     currentStepSizeMutex = xSemaphoreCreateMutex();
     RX_MessageMutex = xSemaphoreCreateMutex();
 
-    if (position == 0)
-        transmitter = false;
-    else
-        transmitter = true;
     TaskHandle_t scanKeysHandle = NULL;
     xTaskCreate(
         scanKeysTask, /* Function that implements the task */
@@ -459,29 +528,27 @@ void setup()
         500,               /* Stack size in words, not bytes */
         NULL,              /* Parameter passed into the task */
         1,                 /* Task priority */
-        &updateDisplayHandle);
-    if (multipleModule && transmitter)
-    {
-        TaskHandle_t CanSendHandle = NULL;
-        xTaskCreate(
-            CAN_TX_Task, /* Function that implements the task */
-            "CAN_TX",    /* Text name for the task */
-            200,         /* Stack size in words, not bytes */
-            NULL,        /* Parameter passed into the task */
-            3,           /* Task priority */
-            &CanSendHandle);
-    }
-    else if (multipleModule && !transmitter)
-    {
-        TaskHandle_t CanReceiveHandle = NULL;
-        xTaskCreate(
-            Can_RX_Task, /* Function that implements the task */
-            "Can_RX",    /* Text name for the task */
-            200,         /* Stack size in words, not bytes */
-            NULL,        /* Parameter passed into the task */
-            3,           /* Task priority */
-            &CanReceiveHandle);
-    }
+        &scanKeysHandle);       
+
+    // TaskHandle_t CanComHandle = NULL;
+    // xTaskCreate(
+    //     CanComTask, /* Function that implements the task */
+    //     "CanCom",   /* Text name for the task */
+    //     200,               /* Stack size in words, not bytes */
+    //     NULL,              /* Parameter passed into the task */
+    //     3,                 /* Task priority */
+    //     &scanKeysHandle);
+
+    TaskHandle_t CanSendHandle = NULL;
+    xTaskCreate(
+        CAN_TX_Task, /* Function that implements the task */
+        "CAN_TX",   /* Text name for the task */
+        200,               /* Stack size in words, not bytes */
+        NULL,              /* Parameter passed into the task */
+        3,                 /* Task priority */
+        &scanKeysHandle);       
+
+
     vTaskStartScheduler();
 }
 

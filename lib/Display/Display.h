@@ -21,4 +21,6 @@ void displayTXRX(bool transmitter, bool multipleModule, uint8_t position);
 
 void displayKeys(uint8_t keyArray0, uint8_t keyArray1, uint8_t keyArray2);
 
+void displayTransmitter();
+
 #endif /* DISPLAY_H */

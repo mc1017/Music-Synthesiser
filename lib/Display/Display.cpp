@@ -61,6 +61,12 @@ void displayWaveform(uint8_t waveform)
     case 3:
         u8g2.print("SIN");
         break;
+    case 4:
+        u8g2.print("LFO");
+        break;
+    default:
+        u8g2.print("-");
+        break;
     }
 }
 
@@ -79,9 +85,6 @@ void displayMode(uint8_t mode)
     case 1:
         u8g2.setCursor(66, 31);
         u8g2.print("DRUM");
-        break;
-    case 2:
-        u8g2.print("LFO");
         break;
     }
 }
@@ -193,4 +196,9 @@ void displayKeys(uint8_t keyArray0, uint8_t keyArray1, uint8_t keyArray2)
             activatedKeys++;
         }
     }
+}
+
+void displayTransmitter()
+{
+    u8g2.drawButtonUTF8(37, 24, U8G2_BTN_BW2, 0, 2, 2, "Transmitter");
 }

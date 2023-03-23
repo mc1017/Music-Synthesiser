@@ -1,8 +1,6 @@
 #ifndef CAN_HANDSHAKE_H
 #define CAN_HANDSHAKE_H
 #include <Arduino.h>
-#include <U8g2lib.h>
-#include <Keyboard.h>
 #include <ES_CAN.h>
 #include <vector>
 #include <Display.h>
@@ -24,7 +22,7 @@ extern uint8_t CAN_Tx[8];
 // Global variable to hold the device's position
 extern uint8_t position;
 extern uint32_t deviceID;
-extern const uint32_t ID_MODULE_INFO;
+extern const uint32_t CAN_ID;
 
 void sendCAN_HSEnd();
 

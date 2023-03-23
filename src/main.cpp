@@ -19,24 +19,9 @@ SemaphoreHandle_t CAN_TXSemaphore;
 QueueHandle_t msgInQ;
 QueueHandle_t msgOutQ;
 
-// ALTERNATE WAVEFORM(Triangle)
-/*
-void sampleISR(){
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  int32_t Vout = 0;
-  if ((phaseAcc >> 24) < 128){
-    Vout = (phaseAcc >> 24) - 128;
-  }
-  else{
-    Vout = 255 - (phaseAcc >> 24);
-  }
-  analogWrite(OUTR_PIN, Vout + 128);
-}
-*/
-
 void sampleISR()
 {
+<<<<<<< HEAD
     boolean keyboard3 = 0;
     // Calculate the output for each active note
     if (RX_Message2[5]== 2) 
@@ -49,6 +34,11 @@ void sampleISR()
     //     octave = RX_Message[5];
     // }
         
+=======
+
+    if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF && RX_Message2[0] == 0xF && RX_Message2[1] == 0xF && RX_Message2[2] == 0xF)
+        octave = 0;
+>>>>>>> 7147401286a513cf410a01724b6817cb4776d77a
 
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
@@ -60,11 +50,13 @@ void sampleISR()
             uint8_t key = ((keyArray[i] >> j) & 1);
             if (key == 0)
             {
+<<<<<<< HEAD
                 octave =0 + knob[1].getRotation();   
+=======
+
+>>>>>>> 7147401286a513cf410a01724b6817cb4776d77a
                 waveforms(Vout, activeNotes, currentIndex);
-                // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
                 drum(Vout, activeNotes, currentIndex);
-                 
             }
             key = ((keyArray2[i] >> j) & 1);
             if (key == 0)
@@ -72,6 +64,7 @@ void sampleISR()
                 octave = 1 + knob[1].getRotation();
                 waveforms(Vout, activeNotes, currentIndex);
             }
+<<<<<<< HEAD
             if (keyboard3) {
                 key = ((keyArray3[i] >> j) & 1);
                 if (key == 0)
@@ -79,6 +72,13 @@ void sampleISR()
                     octave=2 + knob[1].getRotation();
                     waveforms(Vout, activeNotes, currentIndex);
                 }
+=======
+            key = ((keyArray3[i] >> j) & 1);
+            if (key == 0)
+            {
+                octave = 2;
+                waveforms(Vout, activeNotes, currentIndex);
+>>>>>>> 7147401286a513cf410a01724b6817cb4776d77a
             }
             
         }
@@ -91,38 +91,6 @@ void sampleISR()
     }
     analogWrite(OUTR_PIN, Vout + 128);
 }
-
-// ALTERNATE WAVEFORM(Square)
-// void sampleISR()
-// {
-//     static uint32_t phaseAcc = 0;
-//     phaseAcc += currentStepSize;
-//     int32_t Vout = 0;
-//     if ((phaseAcc >> 24) < 128)
-//     {
-//         Vout = 0 - 128;
-//     }
-//     else
-//     {
-//         Vout = 255 - 128;
-//     }
-//     Vout = Vout >> (10 - knob[3].getRotation());
-//     analogWrite(OUTR_PIN, Vout + 128);
-// }
-
-// ALTERNATE WAVEFORM(Sine, to be optimised)
-/*
-void sampleISR(){
-  static uint32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  double radians = phaseAcc/MAX_UINT32;
-  double sineScaled = std::sin(radians)*2147483646 + 0.5;
-  int32_t sineScaledFixed = static_cast<int32_t>(sineScaled);
-
-  int32_t Vout = (sineScaledFixed >> 24) - 128;
-  analogWrite(OUTR_PIN, Vout + 128);
-}
-*/
 
 void CAN_RX_ISR(void)
 {
@@ -148,13 +116,14 @@ void Can_RX_Task(void *pvParameters)
         xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
         for (int i = 0; i < 8; i++)
         {
-            if (tmp_RX_Message[5] == 1) {
-            RX_Message[i] = tmp_RX_Message[i];
+            if (tmp_RX_Message[5] == 1)
+            {
+                RX_Message[i] = tmp_RX_Message[i];
             }
-            else {
+            else
+            {
                 RX_Message2[i] = tmp_RX_Message[i];
             }
-            
         }
         xSemaphoreGive(RX_MessageMutex);
     }
@@ -180,8 +149,7 @@ void canBusInitRoutine()
     CAN_TXSemaphore = xSemaphoreCreateCounting(3, 3);
 
     // Set filters for CAN signals
-    status = setCANFilter(ID_MODULE_INFO, 0x7ff); // Send Handshake Device Info
-    // status = setCANFilter(0x222, 0x7ff); // End Handshake Sequence
+    status = setCANFilter(CAN_ID, 0x7ff);
 
     CAN_RegisterRX_ISR(CAN_RX_ISR);
     CAN_RegisterTX_ISR(CAN_TX_ISR);
@@ -209,26 +177,25 @@ void scanKeysTask(void *pvParameters)
         if (!transmitter && multipleModule)
         {
             xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-            if (RX_Message[5]==1) {
+            if (RX_Message[5] == 1)
+            {
                 for (int i = 0; i < 8; i++)
                 {
                     tmp_RX[i] = RX_Message[i];
                 }
             }
-            
+
             for (int i = 0; i < 8; i++)
             {
-            tmp_RX_2[i] = RX_Message2[i];
+                tmp_RX_2[i] = RX_Message2[i];
             }
-        
-            
+
             xSemaphoreGive(RX_MessageMutex);
         }
         else if (transmitter && multipleModule)
         {
             octave = position;
         }
-        // uint8_t TX_Message[8] = {0};
         for (uint8_t i = 0; i < 5; i++)
         {
             setRow(i);
@@ -238,19 +205,19 @@ void scanKeysTask(void *pvParameters)
             TX_Message[i] = keyArray[i];
             if (i < 3)
             {
-                if (!transmitter && multipleModule) {
-                    keyArray[i] = keyArray[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
-                    keyArray2[i] =  tmp_RX[i];
+                if (!transmitter && multipleModule)
+                {
+                    keyArray[i] = keyArray[i];
+                    keyArray2[i] = tmp_RX[i];
                     keyArray3[i] = tmp_RX_2[i];
                 }
-                else {
+                else
+                {
                     keyArray[i] = keyArray[i];
                 }
             }
 
             test_array[i] = keyArray[i];
-            // TX_Message[i] = keyArray[i];
-            // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
 
             uint8_t currentA0 = (keyArray[i] & 0b00000100) >> 2;
             uint8_t currentB0 = (keyArray[i] & 0b00001000) >> 3;
@@ -265,29 +232,18 @@ void scanKeysTask(void *pvParameters)
             {
             case 3:
                 knob[3].updateRotation(currentA3, currentB3);
-                // u8g2.setCursor(80, 20);
-                // u8g2.print(knob[3].getRotation());
 
                 knob[2].updateRotation(currentA2, currentB2);
-                // u8g2.setCursor(65, 20);
-                // u8g2.print(knob[2].getRotation());
 
                 break;
             case 4:
                 knob[1].updateRotation(currentA1, currentB1);
-                // u8g2.setCursor(50, 20);
-                // u8g2.print(knob[1].getRotation());
 
                 knob[0].updateRotation(currentA0, currentB0);
-                // u8g2.setCursor(35, 20);
-                // u8g2.print(knob[0].getRotation());
 
                 break;
-            case 5:
 
             default:
-                // u8g2.setCursor(2 + 10 * i, 20);
-                // u8g2.print(keyArray[i], HEX);
                 break;
             }
             xSemaphoreGive(rotationMutex);
@@ -301,36 +257,7 @@ void scanKeysTask(void *pvParameters)
         {
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
         }
-
-        // if (!transmitter && multipleModule)
-        // {
-        //     u8g2.setCursor(60, 10);
-        //     u8g2.print(RX_Message[5]);
-        //     u8g2.print(RX_Message[4]);
-        //     u8g2.print(RX_Message[3]);
-        //     u8g2.print(RX_Message[2]);
-        //     u8g2.print(RX_Message[1]);
-        //     u8g2.print(RX_Message[0]);
-        // }
     }
-}
-
-void update_display()
-{
-    uint32_t ID;
-    xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
-    u8g2.setCursor(60, 10);
-    u8g2.print(RX_Message[6]);
-    u8g2.print(RX_Message[5]);
-    u8g2.print(RX_Message[4]);
-    u8g2.print(RX_Message[3]);
-    u8g2.print(RX_Message[2]);
-    u8g2.print(RX_Message[1]);
-    u8g2.print(RX_Message[0]);
-    xSemaphoreGive(RX_MessageMutex);
-    // xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
-
-    // transfer internal memory to the display
 }
 
 void updateDisplayTask(void *pvParameters)
@@ -340,41 +267,30 @@ void updateDisplayTask(void *pvParameters)
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    // if (transmitter && multipleModule)
-    //     uint8_t TX_Message[8] = {0};
-    // TX_Message[0] = 7;
-    // TX_Message[1] = 6;
-    // TX_Message[2] = 4;
-    // TX_Message[3] = 8;
-    // TX_Message[4] = 9;
-    // TX_Message[5] = 9;
-    // TX_Message[6] = 9;
-    // TX_Message[7] = 9;
-
     while (1)
     {
         u8g2.clearBuffer();
-        u8g2.setFont(u8g2_font_t0_11_tf); // choose a suitable font
+        u8g2.setFont(u8g2_font_t0_11_tf);
+
         const uint32_t *stepSizes = stepSizeList[octave];
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
-        // Update display
         xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
         highestBit = highest_unset_bit(keyArray);
         xSemaphoreGive(keyArrayMutex);
         __atomic_store_n(&currentStepSize, (highestBit < 0) ? 0 : stepSizes[highestBit], __ATOMIC_SEQ_CST);
+
+        // Display menu elements
         displayTXRX(transmitter, multipleModule, position);
         displayVolume(knob[3].getRotation());
         displayMode(knob[2].getRotation());
         displayOctave(knob[1].getRotation(), false);
         displayWaveform(knob[0].getRotation());
 
+        // Draw small wave symbol
         u8g2.setFont(u8g2_font_open_iconic_play_1x_t);
         u8g2.drawGlyph(7, 8, 64);
-        // u8g2.print(currentStepSize, HEX);
-        // if (!transmitter && multipleModule)
-        //     update_display();
 
-        u8g2.sendBuffer(); // transfer internal memory to the display
+        u8g2.sendBuffer();
 
         // Toggle LED
         digitalToggle(LED_BUILTIN);

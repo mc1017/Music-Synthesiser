@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <Keyboard.h>
-#include <ES_CAN.h>
 
 // Define boarders
 const int X_START = 2;
@@ -10,6 +9,9 @@ const int X_END = 127;
 const int Y_END = 31;
 const int FONT_HEIGHT = 8;
 const int FONT_WIDTH = 6;
+
+// Display driver object
+U8G2_SSD1305_128X32_NONAME_F_HW_I2C u8g2(U8G2_R0);
 
 void displayHandshake()
 {

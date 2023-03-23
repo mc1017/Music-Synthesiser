@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <U8g2lib.h>
 #include <Keyboard.h>
 #include <Waveform.h>
 #include <cmath>

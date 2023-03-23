@@ -5,6 +5,7 @@
 #include <Keyboard.h>
 #include <CAN_HandShake.h>
 #include <Waveform.h>
+#include <Drum.h>
 #include <vector>
 
 SemaphoreHandle_t keyArrayMutex;
@@ -37,6 +38,14 @@ void sampleISR()
 {
 
     // Calculate the output for each active note
+
+    if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF && RX_Message2[0] == 0xF && RX_Message2[1] == 0xF && RX_Message2[2] == 0xF)
+         octave = 0;
+    // else {
+    //     octave = RX_Message[5];
+    // }
+        
+
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
     for (uint8_t i = 0; i < 3; ++i)
@@ -49,8 +58,22 @@ void sampleISR()
                 int currentIndex = i * 4 + j;
                 waveforms(Vout, activeNotes, currentIndex);
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
-                
+                drum(Vout, activeNotes, currentIndex);
                  
+            }
+            key = ((keyArray2[i] >> j) & 1);
+            if (key == 0)
+            {
+                octave = 1;
+                int currentIndex = i * 4 + j;
+                waveforms(Vout, activeNotes, currentIndex);
+            }
+            key = ((keyArray3[i] >> j) & 1);
+            if (key == 0)
+            {   
+                octave=2;
+                int currentIndex = i * 4 + j;
+                waveforms(Vout, activeNotes, currentIndex);
             }
         }
     }
@@ -192,10 +215,6 @@ void scanKeysTask(void *pvParameters)
             }
         
             
-            // if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
-            //     octave = 0;
-            // else
-            //     octave = RX_Message[5];
             xSemaphoreGive(RX_MessageMutex);
         }
         else if (transmitter && multipleModule)
@@ -212,11 +231,16 @@ void scanKeysTask(void *pvParameters)
             TX_Message[i] = keyArray[i];
             if (i < 3)
             {
-                if (!transmitter && multipleModule)
-                    keyArray[i] = keyArray[i] & tmp_RX_2[i] & tmp_RX[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
-                else
+                if (!transmitter && multipleModule) {
+                    keyArray[i] = keyArray[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
+                    keyArray2[i] =  tmp_RX[i];
+                    keyArray3[i] = tmp_RX_2[i];
+                }
+                else {
                     keyArray[i] = keyArray[i];
+                }
             }
+
             test_array[i] = keyArray[i];
             // TX_Message[i] = keyArray[i];
             // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
@@ -339,10 +363,7 @@ void updateDisplayTask(void *pvParameters)
 void setup()
 {
     // put your setup code here, to run once:
-<<<<<<< HEAD
-=======
     Serial.begin(9600);
->>>>>>> 637e67fef0ca02adc273d85f21231fcffa6ec9fc
     // Set pin directions
     pinMode(RA0_PIN, OUTPUT);
     pinMode(RA1_PIN, OUTPUT);

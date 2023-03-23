@@ -23,11 +23,10 @@ void sampleISR()
 {
     boolean keyboard3 = 0;
     // Calculate the output for each active note
-    if (RX_Message2[5]== 2) 
+    if (RX_Message2[5] == 2)
     {
-        keyboard3 =1;
+        keyboard3 = 1;
     }
-        
 
     uint8_t activeNotes = 0;
     int32_t Vout = 0;
@@ -39,7 +38,7 @@ void sampleISR()
             uint8_t key = ((keyArray[i] >> j) & 1);
             if (key == 0)
             {
-                octave =0 + knob[1].getRotation();   
+                octave = 0 + knob[1].getRotation();
                 waveforms(Vout, activeNotes, currentIndex);
                 drum(Vout, activeNotes, currentIndex);
             }
@@ -49,15 +48,15 @@ void sampleISR()
                 octave = 1 + knob[1].getRotation();
                 waveforms(Vout, activeNotes, currentIndex);
             }
-            if (keyboard3) {
+            if (keyboard3)
+            {
                 key = ((keyArray3[i] >> j) & 1);
                 if (key == 0)
-                {   
-                    octave=2 + knob[1].getRotation();
+                {
+                    octave = 2 + knob[1].getRotation();
                     waveforms(Vout, activeNotes, currentIndex);
                 }
             }
-            
         }
     }
 
@@ -256,12 +255,20 @@ void updateDisplayTask(void *pvParameters)
         xSemaphoreGive(keyArrayMutex);
         __atomic_store_n(&currentStepSize, (highestBit < 0) ? 0 : stepSizes[highestBit], __ATOMIC_SEQ_CST);
 
-        // Display menu elements
+        if (transmitter && multipleModule)
+        {
+            displayTransmitter();
+        }
+        else
+        {
+            // Display menu elements
+            displayVolume(knob[3].getRotation());
+            displayMode(knob[2].getRotation());
+            displayOctave(knob[1].getRotation(), false);
+            displayWaveform(knob[0].getRotation());
+        }
+
         displayTXRX(transmitter, multipleModule, position);
-        displayVolume(knob[3].getRotation());
-        displayMode(knob[2].getRotation());
-        displayOctave(knob[1].getRotation(), false);
-        displayWaveform(knob[0].getRotation());
 
         // Draw small wave symbol
         u8g2.setFont(u8g2_font_open_iconic_play_1x_t);

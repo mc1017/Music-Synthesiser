@@ -95,47 +95,45 @@ void sine(int32_t &Vout, uint8_t &activeNotes, int index)
     ++activeNotes;
 }
 
-// void LFO(int32_t &Vout, uint8_t &activeNotes, int index)
-// {
-//     static uint32_t VolLFOphaseAcc = 0;
-//     const uint32_t *stepSizes = stepSizeList[octave];
+void LFO(int32_t &Vout, uint8_t &activeNotes, int index)
+{
+    static uint32_t VolLFOphaseAcc = 0;
+    const uint32_t *stepSizes = stepSizeList[octave];
     
-    
-//     phaseAcc[index] += stepSizes[index];
 
-//     currentVolLFOStepSize = 780903;
-//     VolLFOphaseAcc += currentVolLFOStepSize;
+    currentVolLFOStepSize = 780903;
+    VolLFOphaseAcc += currentVolLFOStepSize;
 
-//     postLFOStepSize = currentStepSize;
+    postLFOStepSize = stepSizes[index];
 
-//     float LFOvolamt = 1;              // placeholder volume automation
-//     float LFOpitchamt = 0.0833333333; // placeholder pitch automation
-//     float VoutModifier = 0;
-//     float stepModifier = 0;
+    float LFOvolamt = 1;              // placeholder volume automation
+    float LFOpitchamt = 0.0833333333; // placeholder pitch automation
+    float VoutModifier = 0;
+    float stepModifier = 0;
 
-//     if ((VolLFOphaseAcc >> 24) < 128)
-//     {
-//         VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
-//         stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
-//     }
-//     else
-//     {
-//         VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
-//         stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
-//     }
+    if ((VolLFOphaseAcc >> 24) < 128)
+    {
+        VoutModifier = 1 - LFOvolamt * 1.9 * (static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
+        stepModifier = 1 - LFOpitchamt * 1.9 * (static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
+    }
+    else
+    {
+        VoutModifier = 1 - LFOvolamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
+        stepModifier = 1 - LFOpitchamt * 1.9 * (1 - static_cast<float>(VolLFOphaseAcc) / static_cast<float>(MAX_UINT32));
+    }
 
-//     postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
-//     phaseAcc[index] += postLFOStepSize;
+    postLFOStepSize = static_cast<int>(stepModifier * static_cast<float>(currentStepSize));
+    phaseAcc[index] += postLFOStepSize;
 
-//     int32_t Vout = (phaseAcc[index] >> 24) - 128;
+    Vout = (phaseAcc[index] >> 24) - 128;
 
-//     Vout =(Vout * VoutModifier);
-//     // Vout = Vout >> (8 - knob3rotation);
-// }
+    Vout =(Vout * VoutModifier);
+}
 
 
 void waveforms(int32_t &Vout, uint8_t &activeNotes, int index)
 {
+    
     switch (knob[0].getRotation())
     {
     case 0:
@@ -151,10 +149,13 @@ void waveforms(int32_t &Vout, uint8_t &activeNotes, int index)
         sine(Vout, activeNotes, index);
         break;
     case 4:
-        // LFO();
-        // break;
+        LFO(Vout, activeNotes, index);
+        break;
+    
     default:
         sawTooth(Vout, activeNotes, index);
         break;
     }
+    
+    
 }

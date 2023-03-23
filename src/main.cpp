@@ -49,10 +49,11 @@ void sampleISR()
                 int currentIndex = i * 4 + j;
                 waveforms(Vout, activeNotes, currentIndex);
                 // xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+                
+                 
             }
         }
     }
-
     // Avoid Clipping
     if (activeNotes > 1)
     {
@@ -117,7 +118,13 @@ void Can_RX_Task(void *pvParameters)
         xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
         for (int i = 0; i < 8; i++)
         {
-            RX_Message[i] = tmp_RX_Message[i];
+            if (tmp_RX_Message[5] == 1) {
+                RX_Message[i] = tmp_RX_Message[i];
+            }
+            else {
+                RX_Message2[i] = tmp_RX_Message[i];
+            }
+            
         }
         xSemaphoreGive(RX_MessageMutex);
     }
@@ -160,7 +167,8 @@ void scanKeysTask(void *pvParameters)
     const TickType_t xFrequency = 20 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    uint8_t tmp_RX[8] = {0};
+    uint8_t tmp_RX[8] = {15};
+    uint8_t tmp_RX_2[8] = {0};
     uint8_t test_array[5] = {0};
     uint8_t TX_Message[8] = {0};
 
@@ -171,14 +179,23 @@ void scanKeysTask(void *pvParameters)
         if (!transmitter && multipleModule)
         {
             xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
+            if (RX_Message[5]==1) {
+                for (int i = 0; i < 8; i++)
+                {
+                tmp_RX[i] = RX_Message[i];
+                }
+            }
+            
             for (int i = 0; i < 8; i++)
             {
-                tmp_RX[i] = RX_Message[i];
+            tmp_RX_2[i] = RX_Message2[i];
             }
-            if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
-                octave = 0;
-            else
-                octave = RX_Message[5];
+        
+            
+            // if (RX_Message[0] == 0xF && RX_Message[1] == 0xF && RX_Message[2] == 0xF)
+            //     octave = 0;
+            // else
+            //     octave = RX_Message[5];
             xSemaphoreGive(RX_MessageMutex);
         }
         else if (transmitter && multipleModule)
@@ -196,7 +213,7 @@ void scanKeysTask(void *pvParameters)
             if (i < 3)
             {
                 if (!transmitter && multipleModule)
-                    keyArray[i] = keyArray[i] & tmp_RX[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
+                    keyArray[i] = keyArray[i] & tmp_RX_2[i] & tmp_RX[i]; //~((keyArray[i])&(tmp_RX[i]))<<4;
                 else
                     keyArray[i] = keyArray[i];
             }
@@ -245,17 +262,24 @@ void scanKeysTask(void *pvParameters)
         if (transmitter && multipleModule)
         {
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
+            u8g2.setCursor(60, 10);
+            u8g2.print(TX_Message[3]);
+            u8g2.print(TX_Message[2]);
+            u8g2.print(TX_Message[1]);
+            u8g2.print(TX_Message[0]);
         }
 
         if (!transmitter && multipleModule)
         {
+             xSemaphoreTake(RX_MessageMutex, portMAX_DELAY);
             u8g2.setCursor(60, 10);
-            u8g2.print(RX_Message[5]);
-            u8g2.print(RX_Message[4]);
-            u8g2.print(RX_Message[3]);
-            u8g2.print(RX_Message[2]);
-            u8g2.print(RX_Message[1]);
-            u8g2.print(RX_Message[0]);
+            u8g2.print(tmp_RX_2[5]);
+            u8g2.print(tmp_RX_2[1]);
+            u8g2.print(tmp_RX_2[0]);
+            u8g2.print(tmp_RX[5]);
+            u8g2.print(tmp_RX[1]);
+            u8g2.print(tmp_RX[0]);
+            xSemaphoreGive(RX_MessageMutex);
         }
 
         u8g2.setCursor(20, 30);
@@ -288,17 +312,6 @@ void updateDisplayTask(void *pvParameters)
     const TickType_t xFrequency = 100 / portTICK_PERIOD_MS;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    // if (transmitter && multipleModule)
-    //     uint8_t TX_Message[8] = {0};
-    // TX_Message[0] = 7;
-    // TX_Message[1] = 6;
-    // TX_Message[2] = 4;
-    // TX_Message[3] = 8;
-    // TX_Message[4] = 9;
-    // TX_Message[5] = 9;
-    // TX_Message[6] = 9;
-    // TX_Message[7] = 9;
-
     while (1)
     {
         u8g2.clearBuffer();                 // clear the internal memory
@@ -326,7 +339,6 @@ void updateDisplayTask(void *pvParameters)
 void setup()
 {
     // put your setup code here, to run once:
-
     // Set pin directions
     pinMode(RA0_PIN, OUTPUT);
     pinMode(RA1_PIN, OUTPUT);

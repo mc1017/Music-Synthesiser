@@ -23,6 +23,7 @@ volatile uint8_t OutPin[7] = {0, 0, 0, 1, 1, 1, 1};
 const uint32_t ID_MODULE_INFO = 0x111;
 
 uint8_t RX_Message[8];
+uint8_t RX_Message2[8];
 uint8_t CAN_Tx[8];
 
 void sendCAN_HSEnd()

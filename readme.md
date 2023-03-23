@@ -170,6 +170,11 @@ The following custom libraries are included in `main.cpp`:
 
 The real-time system consists of the following tasks:
 
+- A task that samples the waveform output to a DAC (digital-to-analog converter) at a fixed frequency and sets the output voltage based on the active keys on a matrix keypad. This task also ensures that the output voltage does not clip.
+- A task that reads input from the matrix keypad and updates a shared data structure that represents the state of the keys.
+- A task that sends and receives messages over the CAN bus to communicate with other devices.
+- A task that updates the display with information about the current state of the system.
+
 Task 1: Description of Task 1, implemented as a thread.
 Task 2: Description of Task 2, implemented as an interrupt.
 Task 3: Description of Task 3, implemented as a thread.

@@ -30,6 +30,17 @@ The project consists of several key features designed to fulfill its purpose and
 ### Core Features
 
 
+Knob Control Functions Layouts
+
+| Type | Knob Location (Left=0, Right=3) | Range | Fucntions |
+| --- | --- | --- | --- |
+| Wave  | 0th Knob | 0-3 | Sawtooth, Triangle, Square, Sine |
+| Octave | 1st Knob | 3-6 | Octave Level 3-6 (Extendable with multiple boards) | 
+| Modes |  2nd Knob | 0-2 | Normal, Drum, LFO |
+| Volume |  4th Knob | 0-8 | Volume Level |
+
+
+
 1. **Feature 1**: Scanning the key matrix to find out which keys are pressed
     - A keyArray is 
 2. **Feature 2**: Using an interrupt to generate a sawtooth wave

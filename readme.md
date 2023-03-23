@@ -35,7 +35,7 @@ The project consists of several key features designed to fulfill its purpose and
 2. **Feature 2**: Using an interrupt to generate a sawtooth wave
     - A dedicated processing module processes the collected data in real-time.
     - Advanced algorithms are used to detect specific patterns and events.
-3. **Feature 3**: Using threads to allow the key scan and display tasks to be decoupled and executed concurrently
+3. **Feature 3**: Using threads to allow the key scan and display tasks to be decoupled and executed concurrently 
     - A graphical user interface (GUI) allows users to interact with the system.
     - Real-time data visualization helps users to monitor the system status.
 4. **Feature 4**: Use a mutex and queue for thread-safe data sharing
@@ -52,6 +52,20 @@ The project consists of several key features designed to fulfill its purpose and
     - Users can configure the alert thresholds and notification methods.
 
 ### Advanced Features
+
+1. **Hand Shaking**: Using handshake to inform the board of whether there are multiple boards, whether it is a transmitter or reciever, and what position it is at among multiple connected keyboards at start-up. 
+2. **Multiple Waveforms**: The synthesizer is able to produce the following waveforms: Sawtooth waves, Square waves, Triangle waves, Sine waves. 
+3. **LFO**: ?
+4. **Drum Sound Effects**: With a toggle, the synthesizer is able to play multiple different sound effects. 
+5. **Display**: The display is capacble of showing the following information: 
+   - Module position among multiple connected keyboards. (Top-right corner)
+   - Module role as either transmitter, reciever, or lone module. (Top-right corner)
+   - Current Key being pressed (including other keyboards on the reciever keyboard)
+   - Current playing waveform type 
+   - Current playing octave number 
+   - Current mode for other advanced features 
+   - Current playing volume 
+6. **CAN Communication**: Transmitter keyboards will send key array information to the reciever borad, along with it's position among multiple connected keyboards. The reciever board will play the note according the the recieved information. (With connectoin up to 2 keyboards)
 
 ## Code Structure
 

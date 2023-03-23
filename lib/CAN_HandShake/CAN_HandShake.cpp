@@ -116,7 +116,7 @@ bool handshakeRoutine(uint8_t &position)
     uint8_t westHS = 1;
     bool detect = false;
     uint8_t Message[8] = {0};
-    getDeviceIDs();
+    deviceID = HAL_GetUIDw0();
 
     // Set East & West HS output signals
     setRow(5);

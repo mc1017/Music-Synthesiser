@@ -219,7 +219,7 @@ bool handshakeRoutine(uint8_t &position)
         digitalWrite(REN_PIN, 1);
         delayMicroseconds(3);
 
-        sendCAN_ModuleInfo(position, deviceIDs[position]);
+        sendCAN_ModuleInfo(position, deviceID);
     }
     if (eastMost)
     {

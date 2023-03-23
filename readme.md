@@ -37,7 +37,7 @@ Knob Control Functions Layouts
 | Wave  | 0th Knob | 0-3 | Sawtooth, Triangle, Square, Sine |
 | Octave | 1st Knob | 3-6 | Octave Level 3-6 (Extendable with multiple boards) | 
 | Modes |  2nd Knob | 0-2 | Normal, Drum, LFO |
-| Volume |  4th Knob | 0-8 | Volume Level |
+| Volume |  3rd Knob | 0-8 | Volume Level |
 
 
 

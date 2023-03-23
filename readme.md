@@ -173,18 +173,17 @@ The following table shows the theoretical minimum initiation interval and measur
 | CAN_RX_ISR        | High       | 0.7 ms              |  1  µs          |         
 | CAN_TX_ISR        | High       | 0.7 ms              |  1 µs           |
 
-Rate-monotonic scheduling is used to determine the priority of tasks. It ensures an optimal CPU utilisation when shortest initiation interval task gets highest priority. There are 3 noteworthy implementation details from the above table. 
+Rate-monotonic scheduling (RMS) is used to determine the priority of tasks. It ensures an optimal CPU utilisation when shortest initiation interval task gets highest priority. 
+
+Following the rules from RMS, interrupts generally have the highest priority because they need to respond quickly to events. In this case, the ISRs have a very short theoretical initiation interval, making them the highest priority tasks. `updateDisplayTask` has the longest interval (100 ms) and should have the lowest priority.
+
+There are 3 noteworthy implementation details from the above table: 
 
 Firstly, you might notice that the priority of CAN_RX_Task and CAN_TX_Task are the same. This is because for each board, it can either be transmitter or receiver. Thus, there is a maximum of 3 threads running for each board.
 
 Secondly, CAN_RX_Task and CAN_TX_Task have a higher priority than scanKeysTask although the initiaion interval is higher. CAN_RX_Task and CAN_TX_Task has a shorter interval (25.2 ms and 60ms) than ScanKeyTask (20 ms), but they also have to execute 36 times during that interval. This means they have higher frequency of execution and thus requires a higher priority to ensure all of its instances are executed within the given interval.
 
 Lastly, CAN_RX_Task is implemented rather than the decodeTask from the Lab2 instructions. Instead of decoding a message, we have chosen to send across the keyArray directly from the transmitter board to the receiver board. Octave information is obtained from the position of the transmitter board. The information from octave and keyArray are sufficient for our feature implementation, thus complex encoding and decoding is not required. This avoids the latency from performing decoding and resulted in a much quicker communication between boards. 
-
-Interrupts generally have the highest priority because they need to respond quickly to events. In this case, the Interrupt has a very short theoretical initiation interval, making it the highest priority task.
-
-Finally, updateDisplayTask has the longest interval (100 ms) and should have the lowest priority.
-
 
 
 ### Critical Instant Analysis

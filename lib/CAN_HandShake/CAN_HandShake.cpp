@@ -186,7 +186,7 @@ bool handshakeRoutine(uint8_t &position)
         position = 0;
 
         // broadcast CAN signal
-        sendCAN_ModuleInfo(position, deviceIDs[position]);
+        sendCAN_ModuleInfo(position, deviceID);
     }
     else
     {

@@ -236,29 +236,12 @@ Since the critical instant is lower than the latency of the lowest-priority task
 
 The total CPU utilization was quantified using the following formula for rate monotonic scheduling:
 
-CPU Utilization (%) = (Execution Time / Total Time) * 100
+`CPU Utilization (%) = (Execution Time / Total Time) * 100`
 
-Since the total L
+The LCM of all tasks is found to be close to 100ms. Thus, the tasks will run at a period of 100ms.
 
-where Ci is the worst-case execution time of task i, and Ti is the task's period. The calculated CPU utilization is X%.
+Since the total execution time is 81.2314 ms for a period of 100ms, based on the formula above, the CPU utilisation is 81.2314%
 
-Shared Data Structures and Synchronization
-
-The system uses the following shared data structures:
-
-Shared Data Structure 1: Description of Shared Data Structure 1
-Synchronization method used: Mutex locks
-Shared Data Structure 2: Description of Shared Data Structure 2
-Synchronization method used: Semaphores
-These synchronization methods guarantee safe access to the shared data structures and prevent data corruption and race conditions.
-
-Inter-Task Blocking and Deadlock Analysis
-
-An analysis of inter-task blocking dependencies was conducted to identify any possibility of deadlock. The system uses the following resources:
-
-Resource 1: Description of Resource 1
-Resource 2: Description of Resource 2
-The tasks follow a strict order when acquiring and releasing resources, which prevents circular wait and eliminates the possibility of deadlock.
 
 ### Shared Data Structures 
 
@@ -272,7 +255,12 @@ These are the descriptions of Mutexes and Semaphores used:
 - `RX_MessageMutex`: Mutex and Semaphore that protects the CAN RX message queue used for receiving messages over the CAN bus.
 - `CAN_TXSemaphore`: Semaphore that protects the CAN TX queue, allowing only one task to transmit data over the CAN bus at once.
 
-### Intertask Blocking Dependencies 
+### Intertask Blocking Dependencies and Deadlock Analysis 
+An analysis of inter-task blocking dependencies was conducted to identify any possibility of deadlock. The system uses the following resources:
+
+Resource 1: Description of Resource 1
+Resource 2: Description of Resource 2
+The tasks follow a strict order when acquiring and releasing resources, which prevents circular wait and eliminates the possibility of deadlock.
 
 
 

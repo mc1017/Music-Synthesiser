@@ -163,7 +163,7 @@ Task 3: Description of Task 3, implemented as a thread.
 The following table shows the theoretical minimum initiation interval and measured maximum execution time for each task:
 
 
-| Task              | Priority   | Initiation Interval | Execution Time  |
+| Task              | Priority   | Initiation Interval ($τ_i$)| Execution Time  ($T_i$)|
 |-------------------|------------|---------------------|-----------------|
 | displayUpdateTask | 1          | 100 ms              | 16.021 ms       |                   
 | scanKeysTask      | 2          | 20 ms               | 65.6 µs         |                   

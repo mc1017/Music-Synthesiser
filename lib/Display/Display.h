@@ -15,7 +15,7 @@ void displayMode(uint8_t mode);
 
 void displayVolume(uint8_t volume);
 
-void displayTXRX(bool transmitter, uint8_t position);
+void displayTXRX(bool transmitter, bool multipleModule, uint8_t position);
 
 void displayKeys(uint8_t keyArray0, uint8_t keyArray1, uint8_t keyArray2);
 

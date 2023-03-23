@@ -93,10 +93,18 @@ void displayVolume(uint8_t volume)
     u8g2.print(volume);
 }
 
-void displayTXRX(bool transmitter, uint8_t position)
+void displayTXRX(bool transmitter, bool multipleModule, uint8_t position)
 {
     u8g2.setCursor(120, 8);
     u8g2.print(position);
+
+    if (!multipleModule)
+    {
+        u8g2.setFont(u8g2_font_open_iconic_www_1x_t);
+        u8g2.drawGlyph(110, 8, 69);
+        u8g2.setFont(u8g2_font_t0_11_tf);
+        return;
+    }
 
     u8g2.setFont(u8g2_font_open_iconic_gui_1x_t);
 

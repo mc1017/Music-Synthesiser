@@ -218,25 +218,29 @@ void scanKeysTask(void *pvParameters)
             {
             case 3:
                 knob[3].updateRotation(currentA3, currentB3);
-                u8g2.setCursor(80, 20);
-                u8g2.print(knob[3].getRotation());
+                // u8g2.setCursor(80, 20);
+                // u8g2.print(knob[3].getRotation());
+
                 knob[2].updateRotation(currentA2, currentB2);
-                u8g2.setCursor(65, 20);
-                u8g2.print(knob[2].getRotation());
+                // u8g2.setCursor(65, 20);
+                // u8g2.print(knob[2].getRotation());
+
                 break;
             case 4:
                 knob[1].updateRotation(currentA1, currentB1);
-                u8g2.setCursor(50, 20);
-                u8g2.print(knob[1].getRotation());
+                // u8g2.setCursor(50, 20);
+                // u8g2.print(knob[1].getRotation());
+
                 knob[0].updateRotation(currentA0, currentB0);
-                u8g2.setCursor(35, 20);
-                u8g2.print(knob[0].getRotation());
+                // u8g2.setCursor(35, 20);
+                // u8g2.print(knob[0].getRotation());
+
                 break;
             case 5:
 
             default:
-                u8g2.setCursor(2 + 10 * i, 20);
-                u8g2.print(keyArray[i], HEX);
+                // u8g2.setCursor(2 + 10 * i, 20);
+                // u8g2.print(keyArray[i], HEX);
                 break;
             }
             xSemaphoreGive(rotationMutex);
@@ -251,19 +255,16 @@ void scanKeysTask(void *pvParameters)
             xQueueSend(msgOutQ, TX_Message, portMAX_DELAY);
         }
 
-        if (!transmitter && multipleModule)
-        {
-            u8g2.setCursor(60, 10);
-            u8g2.print(RX_Message[5]);
-            u8g2.print(RX_Message[4]);
-            u8g2.print(RX_Message[3]);
-            u8g2.print(RX_Message[2]);
-            u8g2.print(RX_Message[1]);
-            u8g2.print(RX_Message[0]);
-        }
-
-        u8g2.setCursor(20, 30);
-        u8g2.print(position);
+        // if (!transmitter && multipleModule)
+        // {
+        //     u8g2.setCursor(60, 10);
+        //     u8g2.print(RX_Message[5]);
+        //     u8g2.print(RX_Message[4]);
+        //     u8g2.print(RX_Message[3]);
+        //     u8g2.print(RX_Message[2]);
+        //     u8g2.print(RX_Message[1]);
+        //     u8g2.print(RX_Message[0]);
+        // }
     }
 }
 
@@ -305,7 +306,7 @@ void updateDisplayTask(void *pvParameters)
 
     while (1)
     {
-        u8g2.clearBuffer();               // clear the internal memory
+        u8g2.clearBuffer();
         u8g2.setFont(u8g2_font_t0_11_tf); // choose a suitable font
         const uint32_t *stepSizes = stepSizeList[octave];
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -314,6 +315,14 @@ void updateDisplayTask(void *pvParameters)
         highestBit = highest_unset_bit(keyArray);
         xSemaphoreGive(keyArrayMutex);
         __atomic_store_n(&currentStepSize, (highestBit < 0) ? 0 : stepSizes[highestBit], __ATOMIC_SEQ_CST);
+        displayTXRX(transmitter, multipleModule, position);
+        displayVolume(knob[3].getRotation());
+        displayMode(knob[2].getRotation());
+        displayOctave(knob[1].getRotation(), false);
+        displayWaveform(knob[0].getRotation());
+
+        u8g2.setFont(u8g2_font_open_iconic_play_1x_t);
+        u8g2.drawGlyph(7, 8, 64);
         // u8g2.print(currentStepSize, HEX);
         // if (!transmitter && multipleModule)
         //     update_display();

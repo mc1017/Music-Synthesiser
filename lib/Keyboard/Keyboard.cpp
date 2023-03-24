@@ -83,7 +83,7 @@ void Knob::updateRotation(uint8_t currentA, uint8_t currentB)
     prevB = currentB;
 }
 
-Knob knob[4] = {Knob(0, 4), Knob(0, 3), Knob(0, 2), Knob(0, 8)};
+Knob knob[4] = {Knob(0, 4), Knob(0, 3), Knob(0, 1), Knob(0, 8)};
 
 // Function to set outputs using key matrix
 void setOutMuxBit(const uint8_t bitIdx, const bool value)
